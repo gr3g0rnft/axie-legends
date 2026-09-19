@@ -4,6 +4,11 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { getAxieById, getAllAxies, getPerfilCombate } from './config/axies.js';
 import { getHabilidades, getHabilidad } from './config/habilidades.js';
+import { audio } from './audio/AudioManager.js';
+import { initCombatSystem } from './systems/combat-controller.js';
+
+// Inicializar sistema de combate (targeting LoL)
+initCombatSystem();
 
 // 🔧 CORRECCIÓN 1: GLTFLoader compartido
 const sharedGLTFLoader = new GLTFLoader();
@@ -27,8 +32,8 @@ const CONFIG = {
     nexusHealth: 1000,
     meleeSpacing: 1.1,
     mageSpacing: 0.9,
-    meleeSpeed: 0.62,
-    mageSpeed: 0.55,
+    meleeSpeed: 1.1,
+    mageSpeed: 1.0,
     axieSpeed: 1.5,
     smoothSpeed: 2.5,
     cameraSmoothSpeed: 3.0,
@@ -79,9 +84,8 @@ const CONFIG = {
 
     // Separacion en profundidad entre la linea de melee y la de mage.
     // El mage se queda esta distancia por detras del melee mas
-    // adelantado de su bando, para que las dos lineas se lean aparte
-    // y no queden mezcladas en la misma fila.
-    MINION_MAGE_Z_OFFSET: 3.5,
+    // adelantado de su bando. Se baja de 2.2 a 1.5 para maxima agresion.
+    MINION_MAGE_Z_OFFSET: 1.5,
     AXIE_SHOP_DAMAGE_MEMORY: 3.0,
     AXIE_SHOP_HP_MIN: 0.60,
     AXIE_SHOP_CANCEL_HP: 0.50,
@@ -94,9 +98,8 @@ const CONFIG = {
     MAX_ITEM_SLOTS: 6,
     POTION_USE_COOLDOWN: 1.5,
     // Distancia al objetivo a la que el minion abre su slot lateral.
-    // Con 0.5 se abrian al chocar y el reparto se veia tarde; 2.2 los
-    // reparte desde el centro a medida que se acercan, como en LoL.
-    DEPLOY_TRIGGER_DIST: 2.2,
+    // Se aumenta a 5.0 para que se desplieguen mucho antes de chocar.
+    DEPLOY_TRIGGER_DIST: 5.0,
     MINION_TOWER_ATTACK_RANGE: 25,
     AXIES_BASE_PATH: `${import.meta.env.BASE_URL}assets/axies/`,
     MINION_GLB_MAGE_ENEMY: `${import.meta.env.BASE_URL}assets/minions/mage2_bone.glb`,
@@ -1127,6 +1130,8 @@ class Nexus {
             this.health = 0;
             this.isDead = true;
             this.startExplosion();
+            // Sonido de explosión del nexo
+            audio.play('explosion', { volume: 0.8 });
             console.log(`💀 NEXO ${this.isEnemy ? 'ENEMIGO' : 'ALIADO'} DESTRUIDO!`);
             if (this.isEnemy) showVictoryScreen();
             else showDefeatScreen();
@@ -1372,7 +1377,8 @@ function openShop() {
     shopOpen = true;
     shopUI.style.display = 'flex';
     switchTab('potions');
-    gamePaused = true;
+    // Ya no se pausa el juego al abrir la tienda
+    gamePaused = false;
     isMovingToTarget = false;
     targetPosition = null;
     isAutoMovingToTarget = false;
@@ -1381,6 +1387,8 @@ function openShop() {
     isMouseDownRight = false;
     isMouseDownLeft = false;
     isDragging = false;
+    // Sonido de tienda
+    audio.play('shop', { volume: 0.4 });
     console.log('🏪 Tienda abierta (juego pausado)');
 }
 
@@ -1592,6 +1600,8 @@ function dispararAtaqueJugador(target, origen, dmg) {
     const punto = puntoDeDisparo(origen);
     const proj = new PlayerProjectile(punto, target, dmg, proyectilDelPerfil());
     playerProjectiles.push(proj);
+    // Sonido de disparo
+    audio.play('shoot', { volume: 0.6 });
 }
 
 // Traduce el arma del Axie (segun el catalogo) al aspecto del proyectil.
@@ -1740,6 +1750,8 @@ class PlayerProjectile {
         let reward = 0;
         let rewardReason = '';
         const deathPosition = this.mesh.position.clone();
+        // Sonido de impacto
+        audio.play('hit', { volume: 0.5 });
         if (wasEnemyAxie && enemyAxie) {
             const prev = enemyAxie.health;
             enemyAxieTakeDamage(this.damage);
@@ -1870,6 +1882,8 @@ class AxieTower {
             this.health = 0; this.isDead = true; this.group.visible = false;
             for (const p of this.projectiles) { p.active = false; scene.remove(p.mesh); }
             this.projectiles = [];
+            // Sonido de explosión de torre
+            audio.play('explosion', { volume: 0.7 });
             // TAREA C: contabilizar la torre caida para desbloquear el
             // minion grande del bando contrario.
             if (this.isEnemy) towersEnemyLost.ally++;
@@ -2935,21 +2949,102 @@ class Minion {
             ? towers.filter(t => !t.isDead && !t.isEnemy)
             : towers.filter(t => !t.isDead && t.isEnemy);
 
+        // ============================================================
+        // PRIORIDADES DE OBJETIVO SEGUN LOL (orden estricto)
+        // 1. Campeon enemigo atacando a un aliado (prioridad MAXIMA)
+        // 2. Minion enemigo atacando a un campeon aliado
+        // 3. Minion enemigo atacando a un minion aliado
+        // 4. Torreta enemiga atacando a un minion aliado
+        // 5. Minion enemigo mas cercano
+        // 6. Campeon enemigo mas cercano
+        // 7. Estructuras (torres/nexo) - solo si no hay amenazas
+        // ============================================================
+
+        // PRIORIDAD 1: Campeon enemigo (Axie) ATACANDO a un aliado
         let priority1Target = null;
         let priority1Dist = Infinity;
-        for (const em of enemyMinions) {
-            if (em.isDead) continue;
-            if (!enemiesAttackingAllies.has(em)) continue;
-            const dist = this.group.position.distanceTo(em.group.position);
-            if (dist < AGGRO_RANGE_EXTENDED && dist < priority1Dist) {
-                priority1Dist = dist;
-                priority1Target = em;
+        if (enemyAxie && !enemyAxieIsDeadFlag) {
+            const axieDx = Math.abs(enemyAxie.position.x - this.group.position.x);
+            const axieDist = this.group.position.distanceTo(enemyAxie.position);
+            // Verificar si el Axie enemigo tiene target que es un aliado
+            if (axieDist < AGGRO_RANGE_EXTENDED * 2 && axieDx < 8.0) {
+                if (enemyAxie.target && !enemyAxie.target.isDead) {
+                    const targetIsAlly = this.isEnemy 
+                        ? aliados.includes(enemyAxie.target) 
+                        : enemigos.includes(enemyAxie.target);
+                    if (targetIsAlly) {
+                        priority1Target = {
+                            group: enemyAxie,
+                            isDead: false,
+                            type: this.isEnemy ? 'player' : 'enemy_axie',
+                            health: 999999,
+                            _isAxie: true
+                        };
+                    }
+                }
             }
         }
 
+        // PRIORIDAD 2: Minion enemigo ATACANDO a un campeon aliado
         let priority2Target = null;
         let priority2Dist = Infinity;
         if (!priority1Target) {
+            for (const em of enemyMinions) {
+                if (em.isDead) continue;
+                if (!enemiesAttackingAllies.has(em)) continue;
+                // Verificar si el target es un campeon (Axie)
+                const isAttackingChampion = em.target && !em.target.isDead && 
+                    (em.target.type === 'player' || em.target.type === 'enemy_axie' || em.target._isAxie);
+                if (!isAttackingChampion) continue;
+                const dist = this.group.position.distanceTo(em.group.position);
+                if (dist < AGGRO_RANGE_EXTENDED && dist < priority2Dist) {
+                    priority2Dist = dist;
+                    priority2Target = em;
+                }
+            }
+        }
+
+        // PRIORIDAD 3: Minion enemigo ATACANDO a un minion aliado
+        let priority3Target = null;
+        let priority3Dist = Infinity;
+        if (!priority1Target && !priority2Target) {
+            for (const em of enemyMinions) {
+                if (em.isDead) continue;
+                if (!enemiesAttackingAllies.has(em)) continue;
+                // Si no es campeon, es minion aliado
+                const isAttackingMinion = em.target && !em.target.isDead && em.target.type === 'minion';
+                if (!isAttackingMinion) continue;
+                const dist = this.group.position.distanceTo(em.group.position);
+                if (dist < AGGRO_RANGE_EXTENDED && dist < priority3Dist) {
+                    priority3Dist = dist;
+                    priority3Target = em;
+                }
+            }
+        }
+
+        // PRIORIDAD 4: Torreta enemiga ATACANDO a un minion aliado
+        let priority4Target = null;
+        let priority4Dist = Infinity;
+        if (!priority1Target && !priority2Target && !priority3Target) {
+            for (const tower of enemyTowers) {
+                if (!tower.target || tower.target.isDead) continue;
+                // Verificar si la torre ataca a un minion aliado
+                const isAttackingAllyMinion = tower.target.type === 'minion' && 
+                    (this.isEnemy ? aliados.includes(tower.target) : enemigos.includes(tower.target));
+                if (!isAttackingAllyMinion) continue;
+                const dist = this.group.position.distanceTo(tower.position);
+                if (dist < CONFIG.MINION_TOWER_ATTACK_RANGE) {
+                    priority4Target = tower;
+                    priority4Dist = dist;
+                    break;
+                }
+            }
+        }
+
+        // PRIORIDAD 5: Minion enemigo mas cercano en el carril
+        let priority5Target = null;
+        let priority5Dist = Infinity;
+        if (!priority1Target && !priority2Target && !priority3Target && !priority4Target) {
             for (const em of enemyMinions) {
                 if (em.isDead) continue;
                 const dx = Math.abs(em.group.position.x - this.group.position.x);
@@ -2959,13 +3054,33 @@ class Minion {
                 const dz = em.group.position.z - this.group.position.z;
                 const isAhead = this.isEnemy ? dz < 0 : dz > 0;
                 if (!isAhead && Math.abs(dz) > 3.0) continue;
-                if (dist < priority2Dist) { priority2Dist = dist; priority2Target = em; }
+                if (dist < priority5Dist) { priority5Dist = dist; priority5Target = em; }
             }
         }
 
-        let priority3Target = null;
-        let priority3Dist = Infinity;
-        if (!priority1Target && !priority2Target) {
+        // PRIORIDAD 6: Campeon enemigo mas cercano (Axie)
+        let priority6Target = null;
+        if (!priority1Target && !priority2Target && !priority3Target && !priority4Target && !priority5Target) {
+            if (enemyAxie && !enemyAxieIsDeadFlag) {
+                const axieDx = Math.abs(enemyAxie.position.x - this.group.position.x);
+                const axieDist = this.group.position.distanceTo(enemyAxie.position);
+                if (axieDist < CONFIG.MINION_AGGRO_TO_AXIE && axieDx < 3.5) {
+                    priority6Target = {
+                        group: enemyAxie,
+                        isDead: false,
+                        type: this.isEnemy ? 'player' : 'enemy_axie',
+                        health: 999999,
+                        _isAxie: true
+                    };
+                }
+            }
+        }
+
+        // PRIORIDAD 7: Estructuras (torres y nexo) - SOLO si no hay amenazas
+        let priority7Target = null;
+        let priority7Dist = Infinity;
+        if (!priority1Target && !priority2Target && !priority3Target && !priority4Target && !priority5Target && !priority6Target) {
+            // Torres
             for (const tower of enemyTowers) {
                 const dist = this.group.position.distanceTo(tower.position);
                 if (dist > CONFIG.MINION_TOWER_ATTACK_RANGE) continue;
@@ -2976,38 +3091,22 @@ class Minion {
                 const tHP = tower.health / tower.maxHealth;
                 if (tHP < 0.5) score -= 10;
                 if (tHP < 0.3) score -= 20;
-                if (score < priority3Dist) { priority3Dist = score; priority3Target = tower; }
+                if (score < priority7Dist) { priority7Dist = score; priority7Target = tower; }
             }
-        }
-
-        let priority4Target = null;
-        if (!priority1Target && !priority2Target && !priority3Target && enemyAxie && !enemyAxieIsDeadFlag) {
-            const axieDx = Math.abs(enemyAxie.position.x - this.group.position.x);
-            const axieDist = this.group.position.distanceTo(enemyAxie.position);
-            if (axieDist < CONFIG.MINION_AGGRO_TO_AXIE && axieDx < 3.5) {
-                priority4Target = {
-                    group: enemyAxie,
-                    isDead: false,
-                    type: this.isEnemy ? 'player' : 'enemy_axie',
-                    health: 999999,
-                    _isAxie: true
-                };
-            }
-        }
-
-        let priority5Target = null;
-        if (!priority1Target && !priority2Target && !priority3Target && !priority4Target) {
-            const hasLivingTowers = enemyTowers.length > 0;
-            if (!hasLivingTowers) {
-                const enemyNexus = this.isEnemy ? nexusAliado : nexusEnemigo;
-                if (enemyNexus && !enemyNexus.isDead) {
-                    const dist = this.group.position.distanceTo(enemyNexus.position);
-                    if (dist < 40) priority5Target = enemyNexus;
+            // Nexo (solo si no hay torres vivas)
+            if (!priority7Target) {
+                const hasLivingTowers = enemyTowers.length > 0;
+                if (!hasLivingTowers) {
+                    const enemyNexus = this.isEnemy ? nexusAliado : nexusEnemigo;
+                    if (enemyNexus && !enemyNexus.isDead) {
+                        const dist = this.group.position.distanceTo(enemyNexus.position);
+                        if (dist < 40) priority7Target = enemyNexus;
+                    }
                 }
             }
         }
 
-        const finalTarget = priority1Target || priority2Target || priority3Target || priority4Target || priority5Target;
+        const finalTarget = priority1Target || priority2Target || priority3Target || priority4Target || priority5Target || priority6Target || priority7Target;
         const DEPLOY_TRIGGER_DIST = CONFIG.DEPLOY_TRIGGER_DIST;
 
         if (finalTarget) {
@@ -3039,19 +3138,16 @@ class Minion {
 
             const distToAttack = Math.max(0, dist - attackRange);
             // El abanico NO se abre hasta que el minion haya pasado las
-            // torres de su lado: hasta ahi va en fila india y no se rompe
-            // la linea. Antes se abria por distancia al objetivo, asi que
-            // la fila se deshacia antes de tiempo y los de atras se
-            // trababan entre ellos y con las torres.
+            // torres de su lado O haya entrado en rango de combate:
+            // hasta ahi va en fila india y no se rompe la linea.
             const pasoLasTorres = this.isEnemy
                 ? this.group.position.z < TORRE_2_ENEMIGA_Z
                 : this.group.position.z > TORRE_2_ALIADA_Z;
+            const enRangoCombate = distToAttack < DEPLOY_TRIGGER_DIST;
             const deployTarget =
-                (pasoLasTorres && distToAttack < DEPLOY_TRIGGER_DIST) ? 1 : 0;
-            // Despliegue lateral progresivo. Con 2.5 el minion se abria de golpe
-        // al entrar en rango (tiron brusco); 1.1 lo reparte a lo largo de
-        // ~1.5 s, que es el amago ordenado de los minions de LoL.
-        this.deployProgress += (deployTarget - this.deployProgress) * Math.min(1, 0.9 * delta);
+                ((pasoLasTorres || enRangoCombate) && distToAttack < DEPLOY_TRIGGER_DIST) ? 1 : 0;
+        // Despliegue lateral progresivo rápido.
+        this.deployProgress += (deployTarget - this.deployProgress) * Math.min(1, 2.5 * delta);
             if (this.deployProgress < 0.01) this.deployProgress = 0;
             if (this.deployProgress > 0.99) this.deployProgress = 1;
 
@@ -3102,31 +3198,10 @@ class Minion {
                 // solo y saltaba de golpe hacia delante. Con el frente del
                 // melee como tope, ni se adelanta ni da el salto.
                 let advance = 1;
-                if (this.combatOffsetZ !== 0) {
-                    const adelanto = Math.abs(this.combatOffsetZ);
-                    // Frente del melee aliado vivo mas adelantado.
-                    let frenteMelee = null;
-                    for (const al of myAllies) {
-                        if (al === this || al.isDead) continue;
-                        if (al.tipo !== 'melee' && !al.esBig) continue;
-                        if (frenteMelee === null ||
-                            (this.isEnemy ? al.group.position.z < frenteMelee : al.group.position.z > frenteMelee)) {
-                            frenteMelee = al.group.position.z;
-                        }
-                    }
-                    if (frenteMelee !== null) {
-                        const topeZ = this.isEnemy ? frenteMelee + adelanto : frenteMelee - adelanto;
-                        const puedeAvanzar = this.isEnemy ? this.group.position.z > topeZ : this.group.position.z < topeZ;
-                        if (puedeAvanzar) {
-                            advance = 1;
-                        } else {
-                            // Ya esta por delante del tope: vuelve atras en
-                            // vez de quedarse quieto, para recuperar su sitio
-                            // cuando el melee retrocede o muere y la linea cae.
-                            advance = -1;
-                        }
-                    }
-                }
+                const targetIsStructure = finalTarget.type === 'tower' || finalTarget.type === 'nexus';
+                // Los mages (combatOffsetZ !== 0) SIEMPRE avanzan si tienen objetivo.
+                // Eliminamos cualquier restricción de avance para que sean agresivos.
+                advance = 1;
                 this.group.position.z += (dz / norm) * this.speed * delta * advance;
                 // La X va hacia el objetivo, pero el hueco lateral se abre
                 // PROPORCIONALMENTE al despliegue: de lejos todos convergen
@@ -3165,6 +3240,8 @@ class Minion {
         this.isDead = true;
         this.state = 'dead';
         this.group.visible = false;
+        // Sonido de muerte de minion
+        audio.play('hit', { volume: 0.4 });
         if (factionFocusTarget.ally.target === this) { factionFocusTarget.ally.target = null; factionFocusTarget.ally.count = 0; }
         if (factionFocusTarget.enemy.target === this) { factionFocusTarget.enemy.target = null; factionFocusTarget.enemy.count = 0; }
         this.memory.deaths++;
@@ -3358,6 +3435,8 @@ function spawnWave() {
     if (bigAlly || bigEnemy) {
         console.log(`   ⭐ MINION GRANDE: aliado=${bigAlly ? 'SI' : 'no'} enemigo=${bigEnemy ? 'SI' : 'no'} (torres rivales caidas: aliado=${towersEnemyLost.enemy}, enemigo=${towersEnemyLost.ally})`);
     }
+    // Sonido de nueva oleada
+    audio.play('wave', { volume: 0.4 });
 
     waveNumber++;
     waveCooldown = 0;
@@ -3772,6 +3851,8 @@ function usePotion(type) {
         console.log(`💧 Poción MP usada (+50) | MP: ${Math.floor(playerMana)}/${playerMaxMana} | Quedan: ${potionMPCount}`);
         flashPotionHUD('mp');
     }
+    // Sonido de poción
+    audio.play('potion', { volume: 0.5 });
     updatePlayerHUD();
     updatePotionHUD();
 }
@@ -3861,6 +3942,8 @@ function showDefeatScreen() {
     if (gameFinished) return;
     gameFinished = true;
     if (isAITrainingMode) { handleAITrainingMatchEnd('defeat'); return; }
+    // Sonido de derrota
+    audio.play('defeat', { volume: 0.8 });
     if (defeatScreen) defeatScreen.remove();
     defeatScreen = document.createElement('div');
     defeatScreen.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:1000;`;
@@ -5108,9 +5191,12 @@ renderer.domElement.addEventListener('mouseup', (e) => {
             window.showTarget(target);
             
             const targetPos = target.group ? target.group.position : target.position;
-            if (targetPos && target.type !== 'shop') {
+            if (targetPos) {
                 const isEnemy = isEnemyForPlayer(target);
-                const stopDistance = isEnemy ? Math.max(1.5, attackRange - 0.5) : 2.0;
+                const isShop = target.type === 'shop';
+                // Para tiendas, usamos una distancia de parada similar a las torres aliadas
+                // Para enemigos, usamos el rango de ataque
+                const stopDistance = isShop ? 2.0 : (isEnemy ? Math.max(1.5, attackRange - 0.5) : 2.0);
                 const dx = targetPos.x - playerModel.position.x;
                 const dz = targetPos.z - playerModel.position.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
@@ -5317,6 +5403,8 @@ function showVictoryScreen() {
     if (gameFinished) return;
     gameFinished = true;
     if (isAITrainingMode) { handleAITrainingMatchEnd('victory'); return; }
+    // Sonido de victoria
+    audio.play('victory', { volume: 0.8 });
     if (victoryScreen) victoryScreen.remove();
     victoryScreen = document.createElement('div');
     victoryScreen.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:1000;`;
@@ -5506,6 +5594,8 @@ async function startAIGame(axieId) {
     actualizarPantallaCarga(100, '¡Listo!');
     await new Promise(r => setTimeout(r, 200));
     ocultarPantallaCarga();
+    // Iniciar música de fondo
+    audio.playMusic("music");
     setTimeout(() => {
         if (gameFinished) return;
         if (playerModel && !playerSpawned) {
@@ -5524,6 +5614,8 @@ async function startAIGame(axieId) {
 }
 
 async function startGame(axieId) {
+    // Inicializar audio (requiere interacción del usuario - el click en JUGAR ya cuenta)
+    audio.init().catch(() => {});
     mostrarPantallaCarga();
     actualizarPantallaCarga(5, 'Iniciando...');
     if (menuScreen) { menuScreen.destroy(); menuScreen = null; }
@@ -5588,6 +5680,8 @@ async function startGame(axieId) {
     actualizarPantallaCarga(100, '¡Listo!');
     await new Promise(r => setTimeout(r, 200));
     ocultarPantallaCarga();
+    // Iniciar música de fondo (igual que en modo IA)
+    audio.playMusic("music");
     setTimeout(() => {
         if (gameFinished) return;
         if (playerModel && !playerSpawned) {
@@ -6208,10 +6302,14 @@ function gameLoop(time, token) {
 
     const aa = aliados.filter(m => !m.isDead);
     const ae = enemigos.filter(m => !m.isDead);
-    if (spawnQueue.length === 0 && (aa.length === 0 || ae.length === 0)) {
-        waveCooldown += delta;
-        if (waveCooldown > WAVE_DELAY) { waveCooldown = 0; spawnWave(); }
-    } else waveCooldown = 0;
+    // La oleada sale cada 30s de forma constante (LoL style),
+    // sin esperar a que la anterior muera.
+    const WAVE_INTERVAL = 30.0;
+    waveCooldown += delta;
+    if (waveCooldown >= WAVE_INTERVAL) {
+        waveCooldown = 0;
+        spawnWave();
+    }
 
     if (isAITrainingMode) {
         updateDynamicCamera(delta);

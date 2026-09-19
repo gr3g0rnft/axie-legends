@@ -1,16 +1,17 @@
 {
-    "name":  "nexus-engine",
-    "version":  "1.0.0",
-    "type":  "module",
-    "scripts":  {
-                    "dev":  "vite --port 3000 --open",
-                    "build":  "vite build"
-                },
-    "dependencies":  {
-                         "cannon-es":  "^0.20.0",
-                         "three":  "^0.163.0"
-                     },
-    "devDependencies":  {
-                            "vite":  "^5.0.0"
-                        }
+    "name": "nexus-engine",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite --port 3000 --open",
+        "build": "vite build"
+    },
+    "dependencies": {
+        "cannon-es": "^0.20.0",
+        "howler": "^2.2.4",
+        "three": "^0.163.0"
+    },
+    "devDependencies": {
+        "vite": "^5.0.0"
+    }
 }
