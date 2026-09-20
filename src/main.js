@@ -23,6 +23,10 @@ const CONFIG = {
     camaraAngulo: 87,
     camaraDistancia: 20,
     camaraAltura: 16,
+    // ===== EDITOR DE MAPA =====
+    editorGridSize: 0.5,
+    editorSnapEnabled: true,
+    editorShowGrid: true,
     SPAWN_DELAY: 15,
     towerRange: 5,
     towerDamage: 20,
@@ -563,6 +567,21 @@ const PLAYER_AI_POTION_COOLDOWN = 1.5;
 
 const spawnQueue = [];
 let spawnQueueTimer = 0;
+
+// ===== EDITOR DE MAPA CENITAL =====
+let editorMode = false;
+let editorCamera = null;
+let editorPerspectiveCamera = null;
+let editorGridHelper = null;
+let editorSelection = null;
+let editorDragOffset = new THREE.Vector3();
+let editorDragging = false;
+let editorHover = null;
+let editorChanges = {};
+let editorOriginalPositions = {};
+let editorCameraMode = 'ortho'; // 'ortho' | 'perspective'
+let editorTool = 'select'; // 'select' | 'move' | 'rotate' | 'duplicate' | 'mirrorX' | 'mirrorZ' | 'delete'
+let editorUI = null;
 
 function clampWeights(weights) {
     for (const key in weights) {
@@ -6048,6 +6067,14 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
+    // --- E: toggle editor de mapa cenital (ANTES del catálogo de habilidades) ---
+    if (e.key === 'e' || e.key === 'E') {
+        if (gameStarted && !gamePaused && !shopOpen && !isAITrainingMode) {
+            window.__debug.toggleEditorMode();
+            return;
+        }
+    }
+
     // --- Teclas de habilidad (Q/W/E/R): todo lo decide el catalogo ---
     // Para reasignar teclas se cambia 'tecla' en src/config/habilidades.js.
     // Ojo: 'b' (nexo) y 'r' (reset) NO deben solaparse con el catalogo.
@@ -6566,10 +6593,326 @@ window.__debug = {
         return { ok: false, error: 'objeto no encontrado: ' + label };
     },
 
-    // Arranque automatico para la vista cenital: monta una partida sin
-    // pasar por el menu, para que el escenario (carril, torres, nexos y
-    // tiendas) exista y se pueda medir. Idempotente: si ya hay escenario,
-    // no hace nada.
+    // ===== IMPLEMENTACION EDITOR DE MAPA =====
+    createEditorUI() {
+        if (editorUI) editorUI.remove();
+        editorUI = document.createElement('div');
+        editorUI.id = 'editor-ui';
+        editorUI.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10000;
+            background: rgba(10,10,20,0.95);
+            border: 1px solid #4466aa;
+            border-radius: 8px;
+            padding: 12px;
+            color: #e8e8f8;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 12px;
+            min-width: 220px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        `;
+        editorUI.innerHTML = `
+            <div style="font-weight: bold; color: #88aaff; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <span>🗺️ EDITOR MAPA</span>
+                <button id="editor-close" style="background: none; border: none; color: #888; cursor: pointer; font-size: 16px; line-height: 1;">✕</button>
+            </div>
+            <div style="margin-bottom: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="editor-grid-toggle" ${CONFIG.editorShowGrid ? 'checked' : ''}>
+                    <span>Mostrar Grid (${CONFIG.editorGridSize}u)</span>
+                </label>
+            </div>
+            <div style="margin-bottom: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="editor-snap-toggle" ${CONFIG.editorSnapEnabled ? 'checked' : ''}>
+                    <span>Snap a Grid</span>
+                </label>
+            </div>
+            <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #334466;">
+                <div style="font-size: 11px; color: #888; margin-bottom: 6px;">CÁMARA</div>
+                <button id="editor-camera-btn" class="editor-btn" style="width: 100%;">
+                    📷 Cámara: 0° (Ortogonal)
+                </button>
+            </div>
+            <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #334466;">
+                <div style="font-size: 11px; color: #888; margin-bottom: 6px;">HERRAMIENTAS</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                    <button class="editor-btn editor-tool-btn" data-tool="select" style="background: #2e4a8a;">🖱️ Seleccionar</button>
+                    <button class="editor-btn editor-tool-btn" data-tool="move">✋ Mover</button>
+                    <button class="editor-btn editor-tool-btn" data-tool="rotate">🔄 Rotar 90°</button>
+                    <button class="editor-btn editor-tool-btn" data-tool="mirrorX">↔️ Espejo X</button>
+                    <button class="editor-btn editor-tool-btn" data-tool="mirrorZ">↕️ Espejo Z</button>
+                    <button class="editor-btn editor-tool-btn" data-tool="delete">🗑️ Eliminar</button>
+                </div>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <button id="editor-export-btn" class="editor-btn" style="width: 100%; background: #2a5a2a; border-color: #4a8a4a;">📋 Exportar JSON</button>
+            </div>
+            <div style="font-size: 10px; color: #668; line-height: 1.5;">
+                <b>Controles:</b><br>
+                E - Toggle editor<br>
+                C - Cambiar cámara<br>
+                1-7 - Herramientas<br>
+                Click - Seleccionar<br>
+                Arrastre - Mover (con snap)<br>
+                Shift + Arrastre - Mover 1 eje
+            </div>
+        `;
+        document.body.appendChild(editorUI);
+        
+        // Event listeners UI
+        editorUI.querySelector('#editor-close').onclick = () => window.__debug.toggleEditorMode();
+        editorUI.querySelector('#editor-grid-toggle').onchange = (e) => {
+            CONFIG.editorShowGrid = e.target.checked;
+            if (editorGridHelper) editorGridHelper.visible = CONFIG.editorShowGrid;
+        };
+        editorUI.querySelector('#editor-snap-toggle').onchange = (e) => {
+            CONFIG.editorSnapEnabled = e.target.checked;
+        };
+        editorUI.querySelector('#editor-camera-btn').onclick = () => window.__debug.toggleEditorCamera();
+        editorUI.querySelector('#editor-export-btn').onclick = () => window.__debug.exportEditorChanges();
+        editorUI.querySelectorAll('.editor-tool-btn').forEach(btn => {
+            btn.onclick = () => window.__debug.setEditorTool(btn.dataset.tool);
+        });
+        
+        updateEditorUICameraBtn();
+        updateEditorUIToolBtns();
+    },
+    
+    updateEditorUICameraBtn() {
+        const btn = document.getElementById('editor-camera-btn');
+        if (!btn) return;
+        if (editorCameraMode === 'ortho') {
+            btn.textContent = '📷 Cámara: 0° (Ortogonal)';
+            btn.style.background = '#2e4a8a';
+        } else {
+            btn.textContent = '📷 Cámara: 60° (Perspectiva LoL)';
+            btn.style.background = '#5a2a7a';
+        }
+    },
+    
+    updateEditorUIToolBtns() {
+        document.querySelectorAll('.editor-tool-btn').forEach(btn => {
+            if (btn.dataset.tool === editorTool) {
+                btn.style.background = '#2a5a2a';
+                btn.style.borderColor = '#4a8a4a';
+            } else {
+                btn.style.background = '#2e4a8a';
+                btn.style.borderColor = '#4466aa';
+            }
+        });
+    },
+    
+    addEditorListeners() {
+        // Keydown para editor
+        window.__editorKeydown = (e) => {
+            if (!editorMode) return;
+            
+            // Teclas de herramienta
+            const toolKeys = {
+                '1': 'select',
+                '2': 'move',
+                '3': 'rotate',
+                '4': 'mirrorX',
+                '5': 'mirrorZ',
+                '6': 'delete',
+                '7': 'duplicate'
+            };
+            if (toolKeys[e.key]) {
+                window.__debug.setEditorTool(toolKeys[e.key]);
+                return;
+            }
+            
+            // C: cambiar cámara
+            if (e.key === 'c' || e.key === 'C') {
+                window.__debug.toggleEditorCamera();
+                return;
+            }
+            
+            // Delete/Backspace: eliminar selección
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (editorSelection) window.__debug.deleteEditorSelection();
+                return;
+            }
+            
+            // Escape: salir del editor
+            if (e.key === 'Escape') {
+                window.__debug.toggleEditorMode();
+                return;
+            }
+        };
+        window.addEventListener('keydown', window.__editorKeydown);
+        
+        // Mouse events en el canvas
+        const canvas = renderer.domElement;
+        window.__editorMousedown = (e) => {
+            if (!editorMode) return;
+            if (e.button !== 0) return; // solo click izquierdo
+            
+            const rect = canvas.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            
+            // Raycaster contra los objetos del editor
+            const cam = editorCameraMode === 'ortho' ? editorCamera : editorPerspectiveCamera;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, cam);
+            
+            // Obtener objetos seleccionables
+            const selectableObjects = [];
+            window.__debug.actors.forEach(a => {
+                if (a.group) selectableObjects.push(a.group);
+            });
+            
+            const intersects = raycaster.intersectObjects(selectableObjects, true);
+            
+            if (intersects.length > 0) {
+                const hitObject = intersects[0].object;
+                // Encontrar el actor padre
+                let parent = hitObject;
+                while (parent.parent && parent !== scene) parent = parent.parent;
+                
+                const actor = window.__debug.actors.find(a => a.group === parent);
+                if (actor) {
+                    editorSelection = actor.label;
+                    editorHover = null;
+                    
+                    if (editorTool === 'move') {
+                        editorDragging = true;
+                        const point = intersects[0].point;
+                        editorDragOffset.x = actor.x - point.x;
+                        editorDragOffset.z = actor.z - point.z;
+                        canvas.style.cursor = 'grabbing';
+                    } else if (editorTool === 'rotate') {
+                        window.__debug.rotateEditorSelection();
+                    } else if (editorTool === 'mirrorX') {
+                        window.__debug.mirrorEditorSelectionX();
+                    } else if (editorTool === 'mirrorZ') {
+                        window.__debug.mirrorEditorSelectionZ();
+                    } else if (editorTool === 'delete') {
+                        window.__debug.deleteEditorSelection();
+                    }
+                }
+            } else {
+                editorSelection = null;
+            }
+            updateEditorSelectionUI();
+        };
+        
+        window.__editorMousemove = (e) => {
+            if (!editorMode || !editorDragging) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            
+            const cam = editorCameraMode === 'ortho' ? editorCamera : editorPerspectiveCamera;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, cam);
+            
+            // Intersectar con el plano Y = GROUND_Y
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
+            const point = new THREE.Vector3();
+            raycaster.ray.intersectPlane(plane, point);
+            
+            if (point) {
+                let newX = point.x + editorDragOffset.x;
+                let newZ = point.z + editorDragOffset.z;
+                
+                // Snap a grid
+                if (CONFIG.editorSnapEnabled) {
+                    newX = window.__debug.snapToGrid(newX);
+                    newZ = window.__debug.snapToGrid(newZ);
+                }
+                
+                // Shift: lock a un eje
+                if (e.shiftKey && editorSelection) {
+                    const actor = window.__debug.actors.find(a => a.label === editorSelection);
+                    if (actor) {
+                        if (Math.abs(newX - actor.x) > Math.abs(newZ - actor.z)) {
+                            newZ = actor.z;
+                        } else {
+                            newX = actor.x;
+                        }
+                    }
+                }
+                
+                window.__debug.setPos(editorSelection, newX, newZ);
+            }
+        };
+        
+        window.__editorMouseup = () => {
+            if (editorDragging) {
+                editorDragging = false;
+                const canvas = renderer.domElement;
+                canvas.style.cursor = 'grab';
+            }
+        };
+        
+        canvas.addEventListener('mousedown', window.__editorMousedown);
+        window.addEventListener('mousemove', window.__editorMousemove);
+        window.addEventListener('mouseup', window.__editorMouseup);
+        
+        // Hover visual
+        window.__editorHoverMove = (e) => {
+            if (!editorMode || editorDragging) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            
+            const cam = editorCameraMode === 'ortho' ? editorCamera : editorPerspectiveCamera;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, cam);
+            
+            const selectableObjects = [];
+            window.__debug.actors.forEach(a => {
+                if (a.group) selectableObjects.push(a.group);
+            });
+            
+            const intersects = raycaster.intersectObjects(selectableObjects, true);
+            
+            if (intersects.length > 0) {
+                const hitObject = intersects[0].object;
+                let parent = hitObject;
+                while (parent.parent && parent !== scene) parent = parent.parent;
+                const actor = window.__debug.actors.find(a => a.group === parent);
+                if (actor && actor.label !== editorHover) {
+                    editorHover = actor.label;
+                    canvas.style.cursor = 'grab';
+                }
+            } else if (editorHover) {
+                editorHover = null;
+                canvas.style.cursor = 'crosshair';
+            }
+        };
+        canvas.addEventListener('mousemove', window.__editorHoverMove);
+    },
+    
+    removeEditorListeners() {
+        window.removeEventListener('keydown', window.__editorKeydown);
+        const canvas = renderer.domElement;
+        canvas.removeEventListener('mousedown', window.__editorMousedown);
+        window.removeEventListener('mousemove', window.__editorMousemove);
+        window.removeEventListener('mouseup', window.__editorMouseup);
+        canvas.removeEventListener('mousemove', window.__editorHoverMove);
+        
+        window.__editorKeydown = null;
+        window.__editorMousedown = null;
+        window.__editorMousemove = null;
+        window.__editorMouseup = null;
+        window.__editorHoverMove = null;
+    },
+
+    // Arranque automatico para la vista cenital:
     //
     // Usa startGame (partida normal, jugador humano) y NO startAIGame: en
     // modo IA vs IA los minions se mueven solos y las posiciones dejan de
@@ -6584,8 +6927,204 @@ window.__debug = {
         await startGame(pick);
         return { ok: true, yaMontado: false };
     },
-};
-console.log('🔍 window.__debug listo: vista cenital disponible');
+
+    // ===== EDITOR DE MAPA CENITAL (integrado en el juego, tecla E) =====
+    // Inicia/termina el modo editor con camara ortogonal 0° / perspectiva 60°
+    toggleEditorMode() {
+        if (editorMode) {
+            disableEditorMode();
+        } else {
+            enableEditorMode();
+        }
+        return { ok: true, editorMode };
+    },
+    
+    enableEditorMode() {
+        editorMode = true;
+        editorCameraMode = 'ortho';
+        editorTool = 'select';
+        
+        // Crear camara ortogonal (top-down 0°)
+        const w = window.__debug.widths;
+        const aspect = window.innerWidth / window.innerHeight;
+        const size = Math.max(w.laneReal, w.laneLargo) * 0.6;
+        editorCamera = new THREE.OrthographicCamera(
+            -size * aspect, size * aspect, size, -size, 0.1, 200
+        );
+        editorCamera.position.set(0, 50, 0);
+        editorCamera.lookAt(0, 0, 0);
+        editorCamera.up.set(0, 0, -1); // Y arriba, Z hacia arriba en pantalla
+        
+        // Crear camara perspectiva 60° (estilo LoL)
+        editorPerspectiveCamera = new THREE.PerspectiveCamera(60, aspect, 0.1, 200);
+        editorPerspectiveCamera.position.set(0, 35, 15);
+        editorPerspectiveCamera.lookAt(0, 0, 0);
+        
+        // Grid helper
+        editorGridHelper = new THREE.GridHelper(
+            Math.max(w.laneReal, w.laneLargo) * 1.2,
+            Math.ceil(Math.max(w.laneReal, w.laneLargo) / CONFIG.editorGridSize),
+            0x4488ff, 0x224488
+        );
+        editorGridHelper.position.y = GROUND_Y + 0.01;
+        editorGridHelper.visible = CONFIG.editorShowGrid;
+        scene.add(editorGridHelper);
+        
+        // Guardar posiciones originales
+        editorOriginalPositions = {};
+        window.__debug.actors.forEach(a => {
+            editorOriginalPositions[a.label] = { x: a.x, z: a.z };
+        });
+        
+        // Crear UI del editor
+        createEditorUI();
+        
+        // Event listeners del editor
+        addEditorListeners();
+        
+        // Ocultar HUD del juego
+        if (goldDiv) goldDiv.style.display = 'none';
+        if (waveDiv) waveDiv.style.display = 'none';
+        if (timerDiv) timerDiv.style.display = 'none';
+        if (fpsDiv) fpsDiv.style.display = 'none';
+        if (targetUI) targetUI.style.display = 'none';
+        
+        console.log('🗺️ Editor de mapa activado (E para salir)');
+        return { ok: true };
+    },
+    
+    disableEditorMode() {
+        editorMode = false;
+        
+        // Limpiar grid
+        if (editorGridHelper) {
+            scene.remove(editorGridHelper);
+            editorGridHelper.dispose();
+            editorGridHelper = null;
+        }
+        
+        // Limpiar UI
+        if (editorUI) {
+            editorUI.remove();
+            editorUI = null;
+        }
+        
+        // Quitar event listeners
+        removeEditorListeners();
+        
+        // Restaurar camara del juego
+        // La camara del juego se restaura automaticamente en el gameLoop
+        
+        // Restaurar HUD
+        if (goldDiv) goldDiv.style.display = 'block';
+        if (waveDiv) waveDiv.style.display = 'block';
+        if (timerDiv) timerDiv.style.display = 'block';
+        if (fpsDiv) fpsDiv.style.display = 'block';
+        
+        editorSelection = null;
+        editorDragging = false;
+        editorHover = null;
+        
+        console.log('🗺️ Editor de mapa desactivado');
+        return { ok: true };
+    },
+    
+    // Alterna entre camara ortogonal (0°) y perspectiva (60°)
+    toggleEditorCamera() {
+        editorCameraMode = editorCameraMode === 'ortho' ? 'perspective' : 'ortho';
+        updateEditorUICameraBtn();
+        return { ok: true, cameraMode: editorCameraMode };
+    },
+    
+    // Cambia herramienta activa
+    setEditorTool(tool) {
+        editorTool = tool;
+        updateEditorUIToolBtns();
+        return { ok: true, tool: editorTool };
+    },
+    
+    // Exporta los cambios como JSON
+    exportEditorChanges() {
+        const out = { ...editorChanges };
+        const json = JSON.stringify(out, null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+            console.log('📋 Cambios copiados al portapapeles');
+        }).catch(() => {
+            console.log('📋 Cambios (copia manual):', json);
+        });
+        return { ok: true, changes: out, json };
+    },
+    
+    // Aplica un espejo horizontal (X) a la seleccion
+    mirrorEditorSelectionX() {
+        if (!editorSelection) return { ok: false, error: 'sin seleccion' };
+        const actors = window.__debug.actors;
+        const actor = actors.find(a => a.label === editorSelection);
+        if (!actor) return { ok: false, error: 'actor no encontrado' };
+        
+        const newX = -actor.x;
+        const result = window.__debug.setPos(editorSelection, newX, actor.z);
+        if (result.ok) {
+            editorChanges[editorSelection] = { x: newX, z: actor.z };
+        }
+        return result;
+    },
+    
+    // Aplica un espejo vertical (Z) a la seleccion
+    mirrorEditorSelectionZ() {
+        if (!editorSelection) return { ok: false, error: 'sin seleccion' };
+        const actors = window.__debug.actors;
+        const actor = actors.find(a => a.label === editorSelection);
+        if (!actor) return { ok: false, error: 'actor no encontrado' };
+        
+        const newZ = -actor.z;
+        const result = window.__debug.setPos(editorSelection, actor.x, newZ);
+        if (result.ok) {
+            editorChanges[editorSelection] = { x: actor.x, z: newZ };
+        }
+        return result;
+    },
+    
+    // Duplica el objeto seleccionado
+    duplicateEditorSelection() {
+        if (!editorSelection) return { ok: false, error: 'sin seleccion' };
+        // Para duplicar necesitaríamos clonar el objeto 3D, eso es mas complejo
+        // De momento solo avisamos
+        return { ok: false, error: 'duplicar no implementado aun' };
+    },
+    
+    // Rota 90° el objeto seleccionado
+    rotateEditorSelection() {
+        if (!editorSelection) return { ok: false, error: 'sin seleccion' };
+        const actors = window.__debug.actors;
+        const actor = actors.find(a => a.label === editorSelection);
+        if (!actor || !actor.group) return { ok: false, error: 'actor no encontrado' };
+        
+        actor.group.rotation.y += Math.PI / 2;
+        return { ok: true, rotation: actor.group.rotation.y };
+    },
+    
+    // Elimina el objeto seleccionado (solo lo oculta, no lo destruye)
+    deleteEditorSelection() {
+        if (!editorSelection) return { ok: false, error: 'sin seleccion' };
+        const actors = window.__debug.actors;
+        const actor = actors.find(a => a.label === editorSelection);
+        if (!actor || !actor.group) return { ok: false, error: 'actor no encontrado' };
+        
+        actor.group.visible = false;
+        editorChanges[editorSelection] = { deleted: true, x: actor.x, z: actor.z };
+        editorSelection = null;
+        return { ok: true };
+    },
+    
+    // Snap a grid
+    snapToGrid(val) {
+        const grid = CONFIG.editorGridSize;
+        return Math.round(val / grid) * grid;
+    },
+},
+
+console.log('🔍 window.__debug listo: vista cenital + editor disponible');
 
 import './js/hub-control.js';
 import './js/inject-memory.js';
