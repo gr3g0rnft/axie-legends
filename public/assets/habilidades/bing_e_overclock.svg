@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0b1020"/>
+  <text x="40" y="50" font-family="Arial" font-size="28" fill="#cde" font-weight="bold">E: Overclock</text>
+  <text x="40" y="80" font-family="Arial" font-size="16" fill="#9aa">Gain attack speed after 3 hits. Decay starts after 4s of not attacking.</text>
+  <!-- Bing glowing -->
+  <circle cx="220" cy="250" r="55" fill="#7cc8ff"/>
+  <rect x="190" y="295" width="60" height="18" rx="9" fill="#333"/>
+  <rect x="240" y="235" width="90" height="30" rx="15" fill="#444"/>
+  <!-- Energy trails -->
+  <polygon points="280,260 380,220 420,225" fill="#7cc8ff" opacity="0.9"/>
+  <polygon points="280,270 380,250 420,260" fill="#7cc8ff" opacity="0.7"/>
+  <polygon points="280,300 380,280 420,285" fill="#7cc8ff" opacity="0.7"/>
+  <!-- Aura -->
+  <ellipse cx="220" cy="250" rx="90" ry="90" fill="#7cc8ff" opacity="0.15"/>
+  <!-- UI counters -->
+  <rect x="520" y="200" width="220" height="110" rx="12" fill="#111" stroke="#334466" stroke-width="2"/>
+  <text x="540" y="230" font-family="Arial" font-size="14" fill="#fff">3/3  ⚔ 3/3  ⏱ 4.0s</text>
+  <text x="540" y="255" font-family="Arial" font-size="14" fill="#ffd54a">Attack Speed: +60%</text>
+  <text x="540" y="280" font-family="Arial" font-size="14" fill="#aaa">3/3  ⚔ 3/3</text>
+  <text x="560" y="380" font-family="Arial" font-size="12" fill="#fff">Aumento de velocidad tras 3 impactos</text>
+</svg>

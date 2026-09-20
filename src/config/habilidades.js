@@ -1,88 +1,125 @@
 // =============================================
-// CATÁLOGO DE HABILIDADES (Q / W / E / R)
+// CATÁLOGO DE HABILIDADES POR AXIE (Q / W / E / R)
 // =============================================
-// ESTE ES EL ÚNICO ARCHIVO QUE HAY QUE TOCAR PARA AÑADIR O CAMBIAR HABILIDADES.
-//
-// Cada habilidad se define con:
-//   tecla    : la tecla que la activa (se usa también de hueco en el HUD)
-//   nombre   : texto corto bajo la tecla
-//   icono    : ruta al PNG/SVG del icono. VACÍO = se dibuja la tecla. En cuanto
-//              tengas las imágenes, basta con poner aquí la ruta y aparecen.
-//   color    : color del borde y del texto mientras no haya icono
-//   tipo     : 'pocion' | 'area' | 'utilidad'  (qué hace, ver aplicarHabilidad)
-//   mana     : coste de maná (0 = gratis)
-//   cooldown : segundos de recarga
-//   radio    : alcance del efecto en unidades del mundo (solo tipo 'area')
-//   dano     : daño del efecto (solo tipo 'area')
-//   alcance  : alcance de la utilidad (solo tipo 'utilidad')
-//
-// Para añadir una habilidad nueva: añade una entrada aquí y, si su 'tipo' no es
-// uno de los tres ya implementados, añade su rama en aplicarHabilidad() de
-// src/main.js. El HUD, las teclas, el coste de maná y la recarga son automáticos.
 
-// Punto de partida de la Onda de choque. Los números no son un balance cerrado.
-export const HABILIDADES = {
-    q: {
-        tecla: 'Q',
-        nombre: 'POC HP',
-        icono: '',                 // ej: 'assets/habilidades/pocion-hp.png'
-        color: '#ff6644',
-        tipo: 'pocion',
-        pocion: 'hp',
-        mana: 0,
-        cooldown: 0,               // usa el cooldown propio de las pociones
-        radio: 0,
-        dano: 0
+export const HABILIDADES_POR_AXIE = {
+    bing: {
+        q: {
+            tecla: 'Q',
+            nombre: 'Plasma Blast',
+            icono: 'assets/habilidades/bing_q_plasma_blast.jpg',
+            color: '#0ff',
+            tipo: 'area',
+            mana: 30,
+            cooldown: 5.0,
+            radio: 8.0,
+            dano: 55,
+            efecto: 'projectile'
+        },
+        w: {
+            tecla: 'W',
+            nombre: 'Thruster Dash',
+            icono: 'assets/habilidades/bing_w_thruster_dash.jpg',
+            color: '#ff6600',
+            tipo: 'utilidad',
+            mana: 25,
+            cooldown: 10.0,
+            alcance: 12.0,
+            efecto: 'dash_back'
+        },
+        e: {
+            tecla: 'E',
+            nombre: 'Overclock',
+            icono: 'assets/habilidades/bing_e_overclock.jpg',
+            color: '#7cc8ff',
+            tipo: 'utilidad',
+            mana: 40,
+            cooldown: 0,
+            efecto: 'atk_speed_stack'
+        },
+        r: {
+            tecla: 'R',
+            nombre: 'Inferno Cannon',
+            icono: 'assets/habilidades/bing_r_inferno_cannon.jpg',
+            color: '#ff4400',
+            tipo: 'area',
+            mana: 100,
+            cooldown: 80.0,
+            radio: 10.0,
+            dano: 120,
+            efecto: 'dot'
+        }
     },
-    w: {
-        tecla: 'W',
-        nombre: 'ONDA',
-        icono: '',                 // ej: 'assets/habilidades/onda-choque.png'
-        color: '#bb66ff',
-        tipo: 'area',
-        mana: 40,
-        cooldown: 6.0,
-        radio: 6.5,
-        dano: 45
-    },
-    e: {
-        tecla: 'E',
-        nombre: 'POC MP',
-        icono: '',                 // ej: 'assets/habilidades/pocion-mp.png'
-        color: '#44aaff',
-        tipo: 'pocion',
-        pocion: 'mp',
-        mana: 0,
-        cooldown: 0,
-        radio: 0,
-        dano: 0
-    },
-    r: {
-        tecla: 'R',
-        nombre: 'RESET',
-        icono: '',                 // ej: 'assets/habilidades/reset.png'
-        color: '#88ff88',
-        tipo: 'utilidad',
-        utilidad: 'reiniciar',
-        mana: 0,
-        cooldown: 0,
-        radio: 0,
-        dano: 0
+    kotaro: {
+        q: {
+            tecla: 'Q',
+            nombre: 'Flash Slash',
+            icono: 'assets/habilidades/kotaro_q_flash_slash.jpg',
+            color: '#88ccff',
+            tipo: 'area',
+            mana: 35,
+            cooldown: 8.0,
+            radio: 5.5,
+            dano: 60,
+            efecto: 'deep_cut'
+        },
+        w: {
+            tecla: 'W',
+            nombre: 'Blade Guard',
+            icono: 'assets/habilidades/kotaro_w_blade_guard.jpg',
+            color: '#ffcc88',
+            tipo: 'utilidad',
+            mana: 25,
+            cooldown: 14.0,
+            alcance: 4.0,
+            efecto: 'stun_counter'
+        },
+        e: {
+            tecla: 'E',
+            nombre: 'Dance Thousand',
+            icono: 'assets/habilidades/kotaro_e_dance.jpg',
+            color: '#ff88cc',
+            tipo: 'area',
+            mana: 50,
+            cooldown: 20.0,
+            radio: 7.0,
+            dano: 35,
+            efecto: 'bleed_stack'
+        },
+        r: {
+            tecla: 'R',
+            nombre: 'Demon Execution',
+            icono: 'assets/habilidades/kotaro_r_demon_execution.jpg',
+            color: '#ff4444',
+            tipo: 'utilidad',
+            mana: 80,
+            cooldown: 80.0,
+            alcance: 12.0,
+            efecto: 'execute_reset'
+        }
     }
 };
 
-// Orden en el que se pintan en el HUD (de arriba abajo).
-export const ORDEN_HABILIDADES = ['q', 'w', 'e', 'r'];
+export const ORDEN_HABILIDADES = ['q','w','e','r'];
 
-// Devuelve la lista ordenada, lista para recorrer. Si algún día una tecla no
-// está en ORDEN_HABILIDADES simplemente no se pinta, y al revés se ignora.
-export function getHabilidades() {
-    return ORDEN_HABILIDADES
-        .map(k => (HABILIDADES[k] ? Object.assign({ id: k }, HABILIDADES[k]) : null))
-        .filter(Boolean);
+let axieActual = 'bing';
+
+export function setAxieActual(id){
+    axieActual = id;
 }
 
-export function getHabilidad(id) {
-    const h = HABILIDADES[id];
-    return h ? Object.assign({ id }, h) : null;
+export function getHabilidades(){
+    const set = HABILIDADES_POR_AXIE[axieActual] || HABILIDADES_POR_AXIE.bing;
+    return ORDEN_HABILIDADES.map(k => {
+        const h = set[k];
+        return h ? Object.assign({id:k}, h) : null;
+    }).filter(Boolean);
 }
+
+export function getHabilidad(id){
+    const set = HABILIDADES_POR_AXIE[axieActual] || HABILIDADES_POR_AXIE.bing;
+    const h = set[id];
+    return h ? Object.assign({id}, h) : null;
+}
+
+export function getHabilidadesSet(){ return HABILIDADES_POR_AXIE[axieActual] || HABILIDADES_POR_AXIE.bing; }

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0b1020"/>
+  <text x="40" y="50" font-family="Arial" font-size="28" fill="#cde" font-weight="bold">W: Blade Guard</text>
+  <text x="40" y="80" font-family="Arial" font-size="16" fill="#9aa">Blocks front damage. Stuns attackers on counter.</text>
+  <polygon points="340,260 380,210 420,260 380,310" fill="#7a3fa0"/>
+  <circle cx="380" cy="220" r="28" fill="#a86bff"/>
+  <ellipse cx="380" cy="260" rx="100" ry="110" fill="#aaf" opacity="0.25"/>
+  <polygon points="480,220 520,210 540,250 500,280" fill="#ffd"/>
+  <ellipse cx="620" cy="250" rx="45" ry="35" fill="#ffba7a"/>
+  <text x="610" y="255" font-family="Arial" font-size="18" fill="#000">!</text>
+  <text x="560" y="380" font-family="Arial" font-size="12" fill="#fff">Escudo frontal con aturdimiento</text>
+</svg>
