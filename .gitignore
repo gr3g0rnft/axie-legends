@@ -1,0 +1,25 @@
+# API Keys
+.env
+.env.local
+.env.*.local
+config-api.js
+*.key
+*.secret
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build
+dist/
+build/
+
+# Backups
+_backups/
+
+# IDE
+.vscode/
+.idea/
+*.bak_*
+_entry_tmp.mjs
