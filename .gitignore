@@ -8,7 +8,6 @@ config-api.js
 
 # Node
 node_modules/
-package-lock.json
 yarn.lock
 
 # Build
