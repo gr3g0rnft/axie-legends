@@ -5249,12 +5249,63 @@ function showPauseMenu() {
     pauseMenu.innerHTML = `
         <div style="font-size:56px;font-weight:bold;color:#88ddff;margin-bottom:20px;font-family:'Arial Black';">⏸️ ${isAITrainingMode ? 'ENTRENAMIENTO' : 'PAUSA'}</div>
         ${isAITrainingMode ? `<div style="color:#aa88ff;font-family:monospace;font-size:16px;margin-bottom:30px;text-align:center;line-height:1.8;">🤖 Partidas: <b>${aiTrainingMatches}</b><br>⏱️ Sesión: <b>${totalMin} min</b></div>` : ''}
+        <div style="margin: 20px 0; text-align: center;">
+            <div style="margin-bottom: 10px; font-size: 18px; color: #88ddff;">🔊 AUDIO</div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span>Música:</span>
+                    <input type="range" id="music-volume" min="0" max="1" step="0.01" value="${audio.musicVolume}" style="width: 100px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span>EFX:</span>
+                    <input type="range" id="sfx-volume" min="0" max="1" step="0.01" value="${audio.sfxVolume}" style="width: 100px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span>Master:</span>
+                    <input type="range" id="master-volume" min="0" max="1" step="0.01" value="${audio.masterVolume}" style="width: 100px;">
+                </div>
+            </div>
+            <div style="margin-top: 10px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button id="btn-mute-music" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">🔇 Música</button>
+                <button id="btn-mute-sfx" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">🔇 Efectos</button>
+                <button id="btn-mute-all" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">🔇 Todo</button>
+            </div>
+        </div>
         <button id="btn-exit" style="padding:16px 48px;font-size:24px;font-weight:bold;background:linear-gradient(135deg,#ff4444,#cc2222);color:#fff;border:none;border-radius:12px;cursor:pointer;">${isAITrainingMode ? '🚪 Salir al Menú' : '🚪 Volver al Inicio'}</button>
         <button id="btn-resume" style="margin-top:15px;padding:12px 36px;font-size:18px;background:rgba(255,255,255,0.1);color:#88aaff;border:2px solid rgba(136,170,255,0.3);border-radius:12px;cursor:pointer;">↩️ Reanudar</button>
     `;
     document.body.appendChild(pauseMenu);
     document.getElementById('btn-exit').onclick = () => isAITrainingMode ? exitAITrainingMode() : abandonGame();
     document.getElementById('btn-resume').onclick = () => hidePauseMenu();
+    
+    // Audio controls
+    document.getElementById('music-volume').addEventListener('input', (e) => {
+        audio.setMusicVolume(parseFloat(e.target.value));
+    });
+    document.getElementById('sfx-volume').addEventListener('input', (e) => {
+        audio.setSfxVolume(parseFloat(e.target.value));
+    });
+    document.getElementById('master-volume').addEventListener('input', (e) => {
+        audio.setMasterVolume(parseFloat(e.target.value));
+    });
+    document.getElementById('btn-mute-music').addEventListener('click', () => {
+        const isMuted = audio.muted; // This is master mute, but we want to toggle music mute specifically
+        // Since AudioManager doesn't have separate mute for music/sfx, we'll implement it via volume
+        audio.setMusicVolume(audio.muted ? 0.5 : 0); // Toggle between 0 and last known value
+        // Better approach: store previous music volume
+        if (!audio._prevMusicVolume) audio._prevMusicVolume = audio.musicVolume;
+        audio.setMusicVolume(audio.muted ? audio._prevMusicVolume : 0);
+        e.target.textContent = audio.muted ? '🔇 Música' : '🔊 Música';
+    });
+    document.getElementById('btn-mute-sfx').addEventListener('click', () => {
+        if (!audio._prevSfxVolume) audio._prevSfxVolume = audio.sfxVolume;
+        audio.setSfxVolume(audio.muted ? audio._prevSfxVolume : 0);
+        e.target.textContent = audio.muted ? '🔇 Efectos' : '🔊 Efectos';
+    });
+    document.getElementById('btn-mute-all').addEventListener('click', () => {
+        audio.setMuted(!audio.muted);
+        e.target.textContent = audio.muted ? '🔇 Todo' : '🔊 Todo';
+    });
 }
 
 function hidePauseMenu() {
@@ -5264,6 +5315,8 @@ function hidePauseMenu() {
 }
 
 function abandonGame() {
+    // Detener la música de partida al volver al menú
+    audio.stopMusic();
     saveBrains();
     isAITrainingMode = false;
     aiTrainingIsRestarting = false;

@@ -8,6 +8,7 @@
 
 import { getAllAxies, isAxieHabilitado } from '../config/axies.js';
 import { AxiePreviewer } from './AxiePreviewer.js';
+import { audio } from '../audio/AudioManager.js';
 
 export class MenuScreen {
     constructor() {
@@ -19,6 +20,53 @@ export class MenuScreen {
         this.previewer = null;      // visor 3D del Axie seleccionado
         this.previewToken = 0;      // evita cargas cruzadas al cambiar rapido
         this._onResize = null;
+        this.menuMusicAudio = null; // dedicated audio for menu music
+        this._unlockHandler = null;
+    }
+
+    // Arranca la música del lobby. Si el navegador la bloquea,
+    // registra un desbloqueo que se dispara con la primera interacción.
+    _startLobbyMusic() {
+        if (this.menuMusicAudio) return;
+        const audioEl = new Audio('/axie-legends/assets/sound/lobby.mp3');
+        audioEl.loop = true;
+        audioEl.volume = audio.musicVolume * audio.masterVolume;
+        this.menuMusicAudio = audioEl;
+
+        const tryPlay = () => {
+            audioEl.play().catch(err => {
+                console.warn('Lobby music autoplay blocked:', err);
+                if (!this._unlockHandler) {
+                    this._unlockHandler = () => {
+                        if (audio.muted) return;
+                        audioEl.volume = audio.musicVolume * audio.masterVolume;
+                        audioEl.play().then(() => {
+                            window.removeEventListener('pointerdown', this._unlockHandler);
+                            window.removeEventListener('keydown', this._unlockHandler);
+                            this._unlockHandler = null;
+                        }).catch(() => {});
+                    };
+                    window.addEventListener('pointerdown', this._unlockHandler);
+                    window.addEventListener('keydown', this._unlockHandler);
+                }
+            });
+        };
+
+        if (audio.muted) return; // no suena si está muteado globalmente
+        tryPlay();
+    }
+
+    stopMenuMusic() {
+        if (this._unlockHandler) {
+            window.removeEventListener('pointerdown', this._unlockHandler);
+            window.removeEventListener('keydown', this._unlockHandler);
+            this._unlockHandler = null;
+        }
+        if (this.menuMusicAudio) {
+            this.menuMusicAudio.pause();
+            this.menuMusicAudio.currentTime = 0;
+            this.menuMusicAudio = null;
+        }
     }
 
     show(onStartGame, onSelectAxie) {
@@ -78,31 +126,36 @@ export class MenuScreen {
             height: 100%;
         `;
 
+        // Iniciar música de fondo del menú (lobby).
+        // El navegador bloquea el autoplay hasta la primera interacción,
+        // así que intentamos sonar y, si falla, lo desbloqueamos al primer clic.
+        this._startLobbyMusic();
+
         // ---- LOGO / TITULO ----
-        const logo = document.createElement('div');
-        logo.style.cssText = `
-            font-size: 64px;
-            font-weight: 900;
-            letter-spacing: 6px;
-            color: #ffffff;
-            text-shadow: 0 0 30px rgba(68,255,136,0.55), 0 4px 18px rgba(0,0,0,0.8);
-            margin-bottom: 8px;
-            text-align: center;
-            line-height: 1.1;
-        `;
-        logo.textContent = 'AXIE LEGENDS';
-        content.appendChild(logo);
+        // Logo text removed per user request (no "AXIE LEGENDS" label)
+        // const logo = document.createElement('div');
+        // logo.style.cssText = `
+        //     font-size: 64px;
+        //     font-weight: 900;
+        //     letter-spacing: 6px;
+        //     color: #ffffff;
+        //     text-shadow: 0 0 30px rgba(68,255,136,0.55), 0 4px 18px rgba(0,0,0,0.8);
+        //     margin-bottom: 8px;
+        //     text-align: center;
+        //     line-height: 1.1;
+        // `;
+        // logo.textContent = 'AXIE LEGENDS';
+        // content.appendChild(logo);
 
         const subtitle = document.createElement('div');
         subtitle.style.cssText = `
             font-size: 15px;
             letter-spacing: 3px;
             color: #88ddff;
-            opacity: 0.85;
-            margin-bottom: 60px;
-            text-transform: uppercase;
+            margin-top: 4px;
+            text-align: center;
         `;
-        subtitle.textContent = 'Lunacia · Summoner\u2019s Rift';
+        subtitle.textContent = '¡Bienvenido a Axie Legends!';
         content.appendChild(subtitle);
 
         // ---- BOTONES PRINCIPALES ----
@@ -760,6 +813,7 @@ export class MenuScreen {
     }
 
     hide() {
+        this.stopMenuMusic();
         this.closeAxieSelectModal();
         if (this.container && this.container.parentNode) {
             this.container.style.opacity = '0';
@@ -773,6 +827,7 @@ export class MenuScreen {
     }
 
     destroy() {
+        this.stopMenuMusic();
         this.closeAxieSelectModal();
         if (this.container && this.container.parentNode) {
             this.container.parentNode.removeChild(this.container);
