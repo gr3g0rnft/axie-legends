@@ -1,4 +1,5 @@
 ﻿import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MenuScreen } from './ui/MenuScreen.js';
@@ -6618,6 +6619,7 @@ let fpsTimer = 0;
 
 function gameLoop(time, token) {
     if (token !== gameLoopToken) return;
+    if (typeof sandboxMode !== 'undefined' && sandboxMode) { requestAnimationFrame((t) => gameLoop(t, token)); return; }
     if (isAITrainingMode && aiTrainingAutoRestartTimer > 0) {
         const delta = Math.min((time - lastTime) / 1000, 0.05);
         lastTime = time;
@@ -7155,3 +7157,323 @@ import './js/hub-control.js';
 import './js/inject-memory.js';
 
 
+// ===== SANDBOX MODE SIMPLE Y ESTABLE =====
+let sandboxMode = false;
+let sandboxUI = null;
+let sandboxCamera = null;
+let sandboxControls = null;
+let sandboxMountains = [];
+let sandboxSelectedMountain = null;
+let sandboxIsDragging = false;
+let sandboxGrid = null;
+let sandboxSelectionBox = null;
+
+const sandboxDragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.551);
+const sandboxRaycaster = new THREE.Raycaster();
+const sandboxMouse = new THREE.Vector2();
+const sandboxDragOffset = new THREE.Vector3();
+
+const SANDBOX_MOUNTAIN_PATHS = [
+  `${import.meta.env.BASE_URL}assets/terrain/mountains/mountain1_terrain.glb`,
+  `${import.meta.env.BASE_URL}assets/terrain/mountains/mountain2_terrain.glb`,
+  `${import.meta.env.BASE_URL}assets/terrain/mountains/mountain3_terrain.glb`,
+  `${import.meta.env.BASE_URL}assets/terrain/mountains/mountain4_terrain.glb`,
+];
+
+function sandboxToast(msg){
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:14px 24px;background:rgba(10,15,30,0.95);color:#ffcc66;border:2px solid #ffaa44;border-radius:10px;z-index:20000;font-family:sans-serif;font-size:16px;font-weight:bold;box-shadow:0 4px 15px rgba(0,0,0,0.6);`;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2000);
+}
+
+function sandboxUpdateSelection(){
+  if(sandboxSelectionBox){scene.remove(sandboxSelectionBox);sandboxSelectionBox=null;}
+  if(sandboxSelectedMountain && sandboxSelectedMountain.group && sandboxSelectedMountain.group.parent){
+    sandboxSelectionBox = new THREE.BoxHelper(sandboxSelectedMountain.group, 0xffaa44);
+    scene.add(sandboxSelectionBox);
+  }
+  const info = document.getElementById('sb-selected-info');
+  if(info){
+    if(sandboxSelectedMountain){
+      const sc = (sandboxSelectedMountain.scale||sandboxSelectedMountain.group.scale.x||1).toFixed(1);
+      info.innerHTML = `<b style="color:#ffcc66;">Seleccionada:</b> Montaña ${sandboxSelectedMountain.type+1} Escala ${sc}x`;
+    }else{
+      info.innerHTML = `<span style="color:#aaa;">Haz clic en una montaña para seleccionarla</span>`;
+    }
+  }
+}
+
+function sandboxAddMountain(typeIndex){
+  const path = SANDBOX_MOUNTAIN_PATHS[typeIndex];
+  sharedGLTFLoader.load(path,(gltf)=>{
+    const obj = gltf.scene;
+    obj.scale.setScalar(1.0);
+    obj.position.set((Math.random()-0.5)*20, 0.551, (Math.random()-0.5)*20);
+    obj.rotation.y = Math.random()*Math.PI*2;
+    scene.add(obj);
+    const m = {group:obj,type:typeIndex,scale:1.0};
+    sandboxMountains.push(m);
+    sandboxSelectedMountain = m;
+    sandboxUpdateSelection();
+    sandboxToast(`Montaña ${typeIndex+1} añadida`);
+  },undefined,()=>sandboxToast('Error cargando montaña'));
+}
+
+function sandboxChangeScale(delta){
+  if(!sandboxSelectedMountain){sandboxToast('⚠️ Selecciona una montaña primero');return;}
+  const obj = sandboxSelectedMountain.group;
+  let s = sandboxSelectedMountain.scale || obj.scale.x || 1;
+  s = Math.max(0.3, Math.min(6.0, s+delta));
+  sandboxSelectedMountain.scale = s;
+  obj.scale.setScalar(s);
+  sandboxUpdateSelection();
+  sandboxToast(`🔍 Escala ${s.toFixed(1)}x`);
+}
+function sandboxRotateSelected(){
+  if(!sandboxSelectedMountain){sandboxToast('⚠️ Selecciona una montaña primero');return;}
+  sandboxSelectedMountain.group.rotation.y += Math.PI/12;
+  sandboxUpdateSelection();
+  sandboxToast('🔄 Rotada 15°');
+}
+function sandboxDeleteSelected(){
+  if(!sandboxSelectedMountain){sandboxToast('⚠️ Ninguna seleccionada');return;}
+  scene.remove(sandboxSelectedMountain.group);
+  sandboxMountains = sandboxMountains.filter(m=>m!==sandboxSelectedMountain);
+  sandboxSelectedMountain = null;
+  sandboxUpdateSelection();
+  sandboxToast('🗑️ Montaña eliminada');
+}
+function sandboxClearMountains(){
+  sandboxMountains.forEach(m=>{if(m.group.parent) scene.remove(m.group);});
+  sandboxMountains=[];
+  sandboxSelectedMountain=null;
+  sandboxUpdateSelection();
+  sandboxToast('Todas las montañas eliminadas');
+}
+function sandboxToggleGrid(){
+  if(sandboxGrid){scene.remove(sandboxGrid);sandboxGrid=null;sandboxToast('Cuadrícula Oculta');}
+  else{sandboxGrid=new THREE.GridHelper(200,200,0xffaa44,0x556688);sandboxGrid.position.y=0.551+0.02;scene.add(sandboxGrid);sandboxToast('🏁 Cuadrícula Activada');}
+}
+
+function sandboxOnPointerDown(e){
+  if(!sandboxMode||e.button!==0) return;
+  if(e.target.closest('#sandbox-ui')) return;
+  sandboxMouse.x=(e.clientX/window.innerWidth)*2-1;
+  sandboxMouse.y=-(e.clientY/window.innerHeight)*2+1;
+  sandboxRaycaster.setFromCamera(sandboxMouse,sandboxCamera);
+  const hits=[];
+  sandboxMountains.forEach(m=>{m.group.traverse(c=>{if(c.isMesh) hits.push(c);});});
+  const inter = sandboxRaycaster.intersectObjects(hits,false);
+  if(inter.length){
+    let hitObj = inter[0].object;
+    while(hitObj.parent && hitObj.parent!==scene){const f=sandboxMountains.find(m=>m.group===hitObj.parent); if(f){hitObj=f.group;break;} hitObj=hitObj.parent;}
+    const m = sandboxMountains.find(m=>m.group===hitObj);
+    if(m){
+      sandboxSelectedMountain=m;
+      sandboxIsDragging=true;
+      if(sandboxControls) sandboxControls.enabled=false;
+      const p=new THREE.Vector3();
+      sandboxRaycaster.ray.intersectPlane(sandboxDragPlane,p);
+      sandboxDragOffset.subVectors(m.group.position,p);
+      sandboxUpdateSelection();
+    }
+  }else{sandboxSelectedMountain=null; sandboxUpdateSelection();}
+}
+function sandboxOnPointerMove(e){
+  if(!sandboxMode||!sandboxIsDragging||!sandboxSelectedMountain) return;
+  sandboxMouse.x=(e.clientX/window.innerWidth)*2-1;
+  sandboxMouse.y=-(e.clientY/window.innerHeight)*2+1;
+  sandboxRaycaster.setFromCamera(sandboxMouse,sandboxCamera);
+  const p=new THREE.Vector3();
+  if(sandboxRaycaster.ray.intersectPlane(sandboxDragPlane,p)){
+    sandboxSelectedMountain.group.position.x=p.x+sandboxDragOffset.x;
+    sandboxSelectedMountain.group.position.z=p.z+sandboxDragOffset.z;
+  }
+}
+function sandboxOnPointerUp(){
+  if(sandboxIsDragging){sandboxIsDragging=false; if(sandboxControls) sandboxControls.enabled=true;}
+}
+
+function sandboxCreateUI(){
+  if(sandboxUI) sandboxUI.remove();
+  sandboxUI=document.createElement('div');
+  sandboxUI.id='sandbox-ui';
+  sandboxUI.style.cssText=`position:fixed;top:15px;left:15px;z-index:10000;background:rgba(12,16,28,0.96);border:3px solid #ffaa44;border-radius:14px;padding:18px;color:#f0f0f8;font-family:'Segoe UI',Arial,sans-serif;width:340px;box-shadow:0 8px 30px rgba(0,0,0,0.8);`;
+  sandboxUI.innerHTML=`
+  <div style="font-size:18px;font-weight:bold;color:#ffaa44;margin-bottom:12px;text-align:center;">🏔️ EDITOR DE MAPA Y MONTAÑAS</div>
+  <div style="font-size:13px;font-weight:bold;color:#aaccff;margin-bottom:6px;">AÑADIR MONTAÑAS:</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+    <button id="sb-m1" class="sb-btn">➕ Montaña 1</button>
+    <button id="sb-m2" class="sb-btn">➕ Montaña 2</button>
+    <button id="sb-m3" class="sb-btn">➕ Montaña 3</button>
+    <button id="sb-m4" class="sb-btn">➕ Montaña 4</button>
+  </div>
+  <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,170,68,0.3);border-radius:8px;padding:10px;margin-bottom:14px;">
+    <div id="sb-selected-info" style="font-size:13px;margin-bottom:8px;text-align:center;"><span style="color:#aaa;">Haz clic en una montaña para seleccionarla</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+      <button id="sb-scale-up" class="sb-btn-act" style="background:#225533;border-color:#44aa66;">🔍➕ Agrandar</button>
+      <button id="sb-scale-down" class="sb-btn-act" style="background:#553322;border-color:#aa6644;">🔍➖ Achicar</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <button id="sb-rotate" class="sb-btn-act" style="background:#224466;border-color:#4488cc;">🔄 Rotar 15°</button>
+      <button id="sb-delete" class="sb-btn-act" style="background:#662222;border-color:#cc4444;">🗑️ Eliminar</button>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+    <button id="sb-grid" class="sb-btn-big" style="background:#334466;border-color:#6688bb;">🏁 Activar / Desactivar Celdas</button>
+    <div style="display:flex;gap:8px;">
+      <button id="sb-save" class="sb-btn-big" style="flex:1;background:#1a5a2a;border-color:#3a9a4a;">💾 Guardar Mapa</button>
+      <button id="sb-clear" class="sb-btn-big" style="flex:1;background:#4a1a1a;border-color:#9a3a3a;">🗑️ Limpiar</button>
+    </div>
+    <button id="sb-exit" class="sb-btn-big" style="background:#333344;border-color:#666688;">🚪 Salir al Menú</button>
+  </div>
+  <div style="font-size:12px;color:#aaa;background:rgba(0,0,0,0.4);padding:8px;border-radius:6px;line-height:1.4;text-align:center;">
+    <b>Mover:</b> Haz clic y arrastra sobre cualquier montaña.<br>
+    <b>Cámara:</b> Clic Izquierdo = Girar | Clic Derecho = Pan | Rueda = Zoom
+  </div>
+  `;
+  const style=document.createElement('style');
+  style.textContent=`.sb-btn{padding:10px;background:#1c2b42;color:#fff;border:2px solid #3d5a80;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold}.sb-btn:hover{background:#293e5c}.sb-btn-act{padding:8px;color:#fff;border:2px solid;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold}.sb-btn-big{padding:11px;color:#fff;border:2px solid;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold}`;
+  document.head.appendChild(style);
+  document.body.appendChild(sandboxUI);
+  sandboxUI.querySelector('#sb-m1').onclick=()=>sandboxAddMountain(0);
+  sandboxUI.querySelector('#sb-m2').onclick=()=>sandboxAddMountain(1);
+  sandboxUI.querySelector('#sb-m3').onclick=()=>sandboxAddMountain(2);
+  sandboxUI.querySelector('#sb-m4').onclick=()=>sandboxAddMountain(3);
+  sandboxUI.querySelector('#sb-scale-up').onclick=()=>sandboxChangeScale(0.3);
+  sandboxUI.querySelector('#sb-scale-down').onclick=()=>sandboxChangeScale(-0.3);
+  sandboxUI.querySelector('#sb-rotate').onclick=sandboxRotateSelected;
+  sandboxUI.querySelector('#sb-delete').onclick=sandboxDeleteSelected;
+  sandboxUI.querySelector('#sb-grid').onclick=sandboxToggleGrid;
+  sandboxUI.querySelector('#sb-save').onclick=()=>{
+    localStorage.setItem('axie_map_config',JSON.stringify({mountains:sandboxMountains.map(m=>({type:m.type,position:{x:m.group.position.x,y:m.group.position.y,z:m.group.position.z},rotation:{y:m.group.rotation.y},scale:m.scale||m.group.scale.x||1}))}));
+    sandboxToast('✅ Mapa guardado');
+  };
+  sandboxUI.querySelector('#sb-clear').onclick=sandboxClearMountains;
+  sandboxUI.querySelector('#sb-exit').onclick=sandboxExitMode;
+  sandboxUpdateSelection();
+}
+
+function sandboxEnter(){
+  if(sandboxMode) return;
+  sandboxMode=true;
+  console.log('🏔️ Sandbox activado');
+  if(renderer && renderer.domElement){
+    renderer.domElement.style.display='block';
+    renderer.domElement.style.zIndex='9999';
+    renderer.domElement.style.pointerEvents='auto';
+    renderer.domElement.style.position='fixed';
+    renderer.domElement.style.top='0';
+    renderer.domElement.style.left='0';
+    renderer.domElement.style.width='100%';
+    renderer.domElement.style.height='100%';
+  }
+  if(goldDiv) goldDiv.style.display='none';
+  if(waveDiv) waveDiv.style.display='none';
+  if(timerDiv) timerDiv.style.display='none';
+  if(fpsDiv) fpsDiv.style.display='none';
+  if(playerModel) playerModel.visible=false;
+  if(enemyAxieModel) enemyAxieModel.visible=false;
+  aliados.forEach(m=>m.group&&(m.group.visible=false));
+  enemigos.forEach(m=>m.group&&(m.group.visible=false));
+  // Asegurar que terreno, torres, nexos y tiendas sean visibles
+  scene.traverse((obj)=>{ if(obj.isMesh){ obj.visible=true; } });
+
+
+
+  sandboxCamera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,2000);
+  sandboxCamera.position.set(0,40,40);
+
+  sandboxControls=new OrbitControls(sandboxCamera,renderer.domElement);
+  sandboxControls.target.set(0,0,0);
+  sandboxControls.enableDamping=true;
+  sandboxControls.dampingFactor=0.05;
+  sandboxControls.maxPolarAngle=Math.PI/2-0.01;
+  sandboxControls.minDistance=2;
+  sandboxControls.maxDistance=800;
+  sandboxControls.enablePan=true;
+
+  sandboxToggleGrid();
+  sandboxCreateUI();
+  window.__sandboxActive=true;
+
+  window.addEventListener('pointerdown',sandboxOnPointerDown);
+  window.addEventListener('pointermove',sandboxOnPointerMove);
+  window.addEventListener('pointerup',sandboxOnPointerUp);
+
+  try{
+    const raw=localStorage.getItem('axie_map_config');
+    if(raw){
+      const cfg=JSON.parse(raw);
+      cfg.mountains?.forEach(m=>{
+        sharedGLTFLoader.load(SANDBOX_MOUNTAIN_PATHS[m.type],(gltf)=>{
+          const obj=gltf.scene;
+          const sc=m.scale??1;
+          obj.scale.setScalar(sc);
+          obj.position.set(m.position.x,m.position.y??0.551,m.position.z);
+          obj.rotation.y=m.rotation?.y??0;
+          scene.add(obj);
+          sandboxMountains.push({group:obj,type:m.type,scale:sc});
+        });
+      });
+    }
+  }catch(e){}
+
+  function loop(){
+    if(!sandboxMode) return;
+    requestAnimationFrame(loop);
+    sandboxControls.update();
+    if(sandboxSelectionBox) sandboxSelectionBox.update();
+    renderer.render(scene,sandboxCamera);
+  }
+  requestAnimationFrame(loop);
+}
+
+function sandboxExitMode(){
+  if(!sandboxMode) return;
+  sandboxMode=false;
+  console.log('🏠 Sandbox cerrado');
+  window.removeEventListener('pointerdown',sandboxOnPointerDown);
+  window.removeEventListener('pointermove',sandboxOnPointerMove);
+  window.removeEventListener('pointerup',sandboxOnPointerUp);
+  if(sandboxControls){sandboxControls.dispose();sandboxControls=null;}
+  if(sandboxUI){sandboxUI.remove();sandboxUI=null;}
+  if(sandboxGrid){scene.remove(sandboxGrid);sandboxGrid=null;}
+  if(sandboxSelectionBox){scene.remove(sandboxSelectionBox);sandboxSelectionBox=null;}
+  if(goldDiv) goldDiv.style.display='block';
+  if(waveDiv) waveDiv.style.display='block';
+  if(timerDiv) timerDiv.style.display='block';
+  if(fpsDiv) fpsDiv.style.display='block';
+  aliados.forEach(m=>m.group&&(m.group.visible=true));
+  enemigos.forEach(m=>m.group&&(m.group.visible=true));
+  if(playerModel) playerModel.visible=true;
+  if(enemyAxieModel) enemyAxieModel.visible=true;
+  sandboxClearMountains();
+  window.__sandboxActive=false;
+}
+
+window.startSandboxMode=async()=>{
+  const menuEl = document.getElementById('menu-screen');
+  if(menuEl && menuEl.parentNode) menuEl.parentNode.removeChild(menuEl);
+  if(renderer && renderer.domElement){
+    renderer.domElement.style.display='block';
+    renderer.domElement.style.zIndex='9999';
+    renderer.domElement.style.pointerEvents='auto';
+    renderer.domElement.style.position='fixed';
+    renderer.domElement.style.top='0';
+    renderer.domElement.style.left='0';
+    renderer.domElement.style.width='100%';
+    renderer.domElement.style.height='100%';
+    document.body.appendChild(renderer.domElement);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+  let g=0;
+  while(!groundReady||!nexusAliado||!nexusEnemigo||towers.length===0||!shopAliada||!shopEnemiga){
+    await new Promise(r=>setTimeout(r,100));
+    if(++g>150) break;
+  }
+  sandboxEnter();
+};
+window.exitSandboxMode=sandboxExitMode;
