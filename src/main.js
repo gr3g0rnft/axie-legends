@@ -7402,6 +7402,12 @@ function sandboxEnter(){
   window.addEventListener('pointerdown',sandboxOnPointerDown);
   window.addEventListener('pointermove',sandboxOnPointerMove);
   window.addEventListener('pointerup',sandboxOnPointerUp);
+    // WASD / Arrow pan state
+  const keysPressed = new Set();
+  window.addEventListener('keydown', e=>{ if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) { keysPressed.add(e.code); e.preventDefault(); } });
+  window.addEventListener('keyup', e=>{ keysPressed.delete(e.code); });
+  const moveSpeed = 0.8; const moveSmooth = 0.18;
+  let smoothVel = new THREE.Vector3(0,0,0);
 
   try{
     const raw=localStorage.getItem('axie_map_config');
@@ -7426,6 +7432,20 @@ function sandboxEnter(){
     requestAnimationFrame(loop);
     sandboxControls.update();
     if(sandboxSelectionBox) sandboxSelectionBox.update();
+     // WASD pan
+      let dx=0, dz=0;
+if(!sandboxIsDragging){
+      if(keysPressed.has("KeyS") || keysPressed.has("ArrowDown")) dz += moveSpeed;
+      if(keysPressed.has("KeyA") || keysPressed.has("ArrowLeft")) dx -= moveSpeed;
+      if(keysPressed.has("KeyD") || keysPressed.has("ArrowRight")) dx += moveSpeed;
+      const targetVel = new THREE.Vector3(dx,0,dz);
+      smoothVel.lerp(targetVel, moveSmooth);
+      if(smoothVel.lengthSq()>0.0001){
+        const offset = smoothVel.clone();
+        sandboxControls.target.add(offset);
+        sandboxCamera.position.add(offset);
+      }
+    }
     renderer.render(scene,sandboxCamera);
   }
   requestAnimationFrame(loop);
