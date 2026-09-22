@@ -173,6 +173,16 @@ export class MenuScreen {
         }, false);
         buttonsContainer.appendChild(btn1v1);
 
+        const btnSandbox = this.createGameButton('Sandbox Mapa', 'Editar mapa y montañas', '#ffaa44', () => {
+            if (typeof window !== 'undefined' && window.startSandboxMode) {
+                this.hide();
+                window.startSandboxMode();
+            } else {
+                this.showToast('Sandbox no disponible');
+            }
+        }, false);
+        buttonsContainer.appendChild(btnSandbox);
+
         const btn5v5 = this.createGameButton('5 vs 5', 'Pr\u00f3ximamente', '#888899', () => {
             this.showToast('\uD83C\uDF1F Modo 5 vs 5 en desarrollo... \u00a1Pronto disponible!');
         }, true);
