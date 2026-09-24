@@ -6950,6 +6950,39 @@ function usarHabilidad(id) {
     const hab = getHabilidad(id);
     if (!hab) return;
     if (!habilidadDisponible(hab)) return;
+
+    // Si ya estamos apuntando algo, cancelarlo primero
+    if (aimingAbility) cancelarApuntado();
+    if (aimingAreaAbility) cancelarApuntadoArea();
+
+    // Habilidad dirigida (Q): entrar en modo apuntado
+    if (hab.tipo === 'target') {
+        iniciarApuntado(hab);
+        return;
+    }
+
+    // Ultimate: puede ser target, area o instant (varía por Axie).
+    // Para M3 solo cubrimos el subtipo target. Los demás subtipos se 
+    // implementarán en M6.
+    if (hab.tipo === 'ultimate' && hab.subtipo === 'target') {
+        iniciarApuntado(hab);
+        return;
+    }
+
+    // Habilidad de área (W): entrar en modo apuntado de área
+    if (hab.tipo === 'area') {
+        iniciarApuntadoArea(hab);
+        return;
+    }
+
+    // Habilidad pasiva (E): es un TOGGLE (activar/desactivar).
+    // Por ahora, mensaje provisional. Se implementará en M5.
+    if (hab.tipo === 'pasiva') {
+        console.log('ℹ️ ' + hab.nombre + ' es pasiva toggle (pendiente M5)');
+        return;
+    }
+
+    // Otros tipos: aplicar directamente (compatibilidad)
     aplicarHabilidad(hab);
 }
 
