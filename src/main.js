@@ -1517,7 +1517,7 @@ function showMoveIndicator(x, z) {
     const dot = new THREE.Mesh(dotGeo, dotMat);
     dot.rotation.x = -Math.PI / 2;
     moveIndicator.add(dot);
-    moveIndicator.position.set(x, GROUND_Y + 0.05, z);
+    moveIndicator.position.set(x, GROUND_Y + 0.06, z);
     moveIndicator.renderOrder = 999;
     scene.add(moveIndicator);
     moveIndicatorTimer = MOVE_INDICATOR_DURATION;
@@ -2015,7 +2015,7 @@ function lanzarHabilidadArea() {
 }
 
 // --- M6.2a: Iniciar canalizada (R estilo Miss Fortune) ---
-function iniciarChannel(hab) {
+function iniciarChannel(hab, direccionInicial) {
     if (!hab) return;
     if (channelAbility) cancelarChannel();
 
@@ -2041,24 +2041,34 @@ function iniciarChannel(hab) {
     channelCooldownRafaga = 0;
     channelStartPos.copy(playerModel.position);
 
-    // Dirección: hacia donde mira el Axie actualmente
-    // (o hacia el ratón si quieres apuntar; de momento, hacia donde mira)
-    channelDireccion.set(
-        Math.sin(playerModel.rotation.y),
-        0,
-        Math.cos(playerModel.rotation.y)
-    );
+    // Dirección: usar la dirección fijada en el apuntado, o la del Axie
+    if (direccionInicial) {
+        channelDireccion.copy(direccionInicial);
+    } else {
+        channelDireccion.set(
+            Math.sin(playerModel.rotation.y),
+            0,
+            Math.cos(playerModel.rotation.y)
+        );
+    }
 
     // Crear cono visual
     crearConoChannel(hab);
+    
+    // M6.3b: bloquear el movimiento del Axie durante la canalizada
+    isMovingToTarget = false;
+    targetPosition = null;
+    isAutoMovingToTarget = false;
 
     console.log('🎯 Canalizando: ' + hab.nombre + ' | Duración: ' + channelDuration + 's | Ráfagas: ' + channelRafagasRestantes);
 }
 
 // --- M6.2a: Cancelar canalizada ---
-function cancelarChannel() {
+function cancelarChannel(silencioso) {
     if (!channelAbility) return;
-    console.log('❌ Canalización cancelada: ' + channelAbility.nombre);
+    if (!silencioso) {
+        console.log('❌ Canalización cancelada: ' + channelAbility.nombre);
+    }
     channelAbility = null;
     channelTimer = 0;
     channelDuration = 0;
@@ -2085,20 +2095,20 @@ function crearConoChannel(hab) {
         channelIndicator = null;
     }
 
-    const rango = hab.rango || 8.0;
+    const rango = (hab.rango || 8.0) * 0.5;
     const angulo = (hab.angulo || 60) * Math.PI / 180;
-    const radioBase = 0.4;
 
-    // Crear geometría de cono (triángulo expandido) usando Shape
+    // Crear el cono con ShapeGeometry: un triángulo con la punta en el 
+    // origen y la base hacia +Z. Se genera en el plano XY y luego se 
+    // rota para tumbarlo sobre el suelo XZ.
     const shape = new THREE.Shape();
     shape.moveTo(0, 0);
-    const pasos = 16;
+    const pasos = 24;
     for (let i = 0; i <= pasos; i++) {
         const t = i / pasos;
         const a = -angulo / 2 + angulo * t;
-        const x = Math.sin(a) * rango;
-        const y = Math.cos(a) * rango;
-        shape.lineTo(x, y);
+        // El eje +Y de la shape se convierte en +Z del mundo al rotar.
+        shape.lineTo(Math.sin(a) * rango, Math.cos(a) * rango);
     }
     shape.lineTo(0, 0);
 
@@ -2106,7 +2116,62 @@ function crearConoChannel(hab) {
     const mat = new THREE.MeshBasicMaterial({
         color: INDICATOR_COLOR,
         transparent: true,
-        opacity: 0.25,
+        opacity: 0.35,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    const cono = new THREE.Mesh(geo, mat);
+    // Rotar para tumbar en el suelo: la shape está en plano XY, queremos 
+    // que quede en plano XZ. rotation.x = -PI/2 gira el eje Y al eje Z.
+    cono.rotation.x = -Math.PI / 2;
+    cono.rotation.z = Math.PI;
+    cono.renderOrder = 1003;
+
+    channelIndicator = new THREE.Group();
+    channelIndicator.add(cono);
+    // La rotación del grupo se ajusta al Axie (se hará cada frame en 
+    // actualizarChannel)
+    channelIndicator.position.set(
+        playerModel.position.x,
+        GROUND_Y + 0.06,
+        playerModel.position.z
+    );
+
+    scene.add(channelIndicator);
+}
+
+// --- M6.3c: crear el cono visual de apuntado (R) ---
+function crearIndicadorApuntadoChannel(hab) {
+    if (aimingChannelIndicator) {
+        scene.remove(aimingChannelIndicator);
+        aimingChannelIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        aimingChannelIndicator = null;
+    }
+    if (!hab) return;
+
+    const rango = (hab.rango || 8.0) * 0.5;
+    const angulo = (hab.angulo || 60) * Math.PI / 180;
+
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    const pasos = 24;
+    for (let i = 0; i <= pasos; i++) {
+        const t = i / pasos;
+        const a = -angulo / 2 + angulo * t;
+        shape.lineTo(Math.sin(a) * rango, Math.cos(a) * rango);
+    }
+    shape.lineTo(0, 0);
+
+    const geo = new THREE.ShapeGeometry(shape);
+    const mat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 0.45,
         side: THREE.DoubleSide,
         depthTest: false,
         depthWrite: false,
@@ -2114,13 +2179,96 @@ function crearConoChannel(hab) {
     });
     const cono = new THREE.Mesh(geo, mat);
     cono.rotation.x = -Math.PI / 2;
-    cono.position.set(playerModel.position.x, GROUND_Y + 0.05, playerModel.position.z);
-    cono.rotation.z = -playerModel.rotation.y;
+    cono.rotation.z = Math.PI;
     cono.renderOrder = 1003;
 
-    channelIndicator = new THREE.Group();
-    channelIndicator.add(cono);
-    scene.add(channelIndicator);
+    aimingChannelIndicator = new THREE.Group();
+    aimingChannelIndicator.add(cono);
+    aimingChannelIndicator.position.set(
+        playerModel.position.x,
+        GROUND_Y + 0.06,
+        playerModel.position.z
+    );
+    aimingChannelIndicator.rotation.y = playerModel.rotation.y;
+
+    scene.add(aimingChannelIndicator);
+}
+
+// --- M6.3c: iniciar apuntado del cono ---
+function iniciarApuntadoChannel(hab) {
+    if (!hab) return;
+    if (aimingChannelAbility) cancelarApuntadoChannel();
+
+    aimingChannelAbility = hab;
+    aimingChannelTimeout = AIMING_CHANNEL_TIMEOUT;
+    aimingChannelDir.set(
+        Math.sin(playerModel.rotation.y),
+        0,
+        Math.cos(playerModel.rotation.y)
+    );
+    crearIndicadorApuntadoChannel(hab);
+
+    console.log('🎯 Apuntando R: ' + hab.nombre + ' (click izq para lanzar, ESC para cancelar)');
+}
+
+// --- M6.3c: cancelar apuntado del cono ---
+function cancelarApuntadoChannel() {
+    if (!aimingChannelAbility && !aimingChannelIndicator) return;
+    if (aimingChannelAbility) {
+        console.log('❌ Apuntado R cancelado: ' + aimingChannelAbility.nombre);
+    }
+    aimingChannelAbility = null;
+    aimingChannelTimeout = 0;
+    if (aimingChannelIndicator) {
+        scene.remove(aimingChannelIndicator);
+        aimingChannelIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        aimingChannelIndicator = null;
+    }
+}
+
+// --- M6.3c: actualizar el apuntado del cono cada frame ---
+function actualizarApuntadoChannel(delta) {
+    if (!aimingChannelAbility) return;
+    if (!playerModel || !renderer || !camera || !window.__mousePos) return;
+
+    aimingChannelTimeout -= delta;
+    if (aimingChannelTimeout <= 0) {
+        cancelarApuntadoChannel();
+        return;
+    }
+
+    // Calcular dirección hacia el ratón sobre el suelo
+    const m = window.__mousePos;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+        ((m.x - rect.left) / rect.width) * 2 - 1,
+        -((m.y - rect.top) / rect.height) * 2 + 1
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
+    const punto = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(plane, punto)) return;
+
+    const dx = punto.x - playerModel.position.x;
+    const dz = punto.z - playerModel.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < 0.1) return;
+
+    aimingChannelDir.set(dx / dist, 0, dz / dist);
+
+    if (aimingChannelIndicator) {
+        aimingChannelIndicator.position.set(
+            playerModel.position.x,
+            GROUND_Y + 0.06,
+            playerModel.position.z
+        );
+        // Rotar el cono para apuntar hacia el ratón
+        aimingChannelIndicator.rotation.y = Math.atan2(aimingChannelDir.x, aimingChannelDir.z);
+    }
 }
 
 // --- M6.2b: Actualizar la canalizada cada frame ---
@@ -2131,7 +2279,7 @@ function actualizarChannel(delta) {
     // Detectar si el Axie se ha movido (más de 0.1 unidades)
     const dx = playerModel.position.x - channelStartPos.x;
     const dz = playerModel.position.z - channelStartPos.z;
-    if (Math.sqrt(dx * dx + dz * dz) > 0.1) {
+    if (Math.sqrt(dx * dx + dz * dz) > 0.5) {
         console.log('⚠️ Canalización cancelada: el Axie se movió');
         cancelarChannel();
         return;
@@ -2145,9 +2293,10 @@ function actualizarChannel(delta) {
     if (channelIndicator) {
         channelIndicator.position.set(
             playerModel.position.x,
-            GROUND_Y + 0.05,
+            GROUND_Y + 0.06,
             playerModel.position.z
         );
+        channelIndicator.rotation.y = playerModel.rotation.y;
     }
 
     // Disparar ráfagas
@@ -2160,7 +2309,7 @@ function actualizarChannel(delta) {
     // Terminar cuando se acabe la duración o las ráfagas
     if (channelTimer >= channelDuration || channelRafagasRestantes <= 0) {
         console.log('✅ Canalización completada: ' + channelAbility.nombre);
-        cancelarChannel();
+        cancelarChannel(true);
     }
 }
 
@@ -2172,9 +2321,9 @@ function dispararRafagaChannel() {
     const anguloMedio = (hab.angulo || 60) / 2 * Math.PI / 180;
     const dano = hab.danoPorRafaga || 15;
 
-    // Dirección actual del Axie
-    const dirX = Math.sin(playerModel.rotation.y);
-    const dirZ = Math.cos(playerModel.rotation.y);
+    // Dirección fijada al iniciar la canalizada
+    const dirX = channelDireccion.x;
+    const dirZ = channelDireccion.z;
     const origen = playerModel.position.clone();
 
     // Ángulo central de la dirección
@@ -2257,7 +2406,8 @@ function dispararRafagaChannel() {
     // Sonido por ráfaga (suave)
     if (typeof audio !== 'undefined') audio.play('shoot', { volume: 0.3 });
 
-    console.log('💥 Ráfaga ' + (channelAbility.rafagas - channelRafagasRestantes) + '/' + channelAbility.rafagas + ' | Impactos: ' + impactos);
+    const numRafaga = channelAbility.rafagas - channelRafagasRestantes + 1;
+    console.log('💥 Ráfaga ' + numRafaga + '/' + channelAbility.rafagas + ' | Impactos: ' + impactos);
 }
 
 // --- M4.1: animar ondas expansivas ---
@@ -5001,6 +5151,12 @@ let channelIntervaloRafaga = 0;   // Segundos entre ráfagas
 let channelDireccion = new THREE.Vector3(0, 0, 1); // Dirección (eje X-Z)
 let channelStartPos = new THREE.Vector3(0, 0, 0);  // Para detectar movimiento
 let channelIndicator = null;      // Cono visual en el suelo
+// --- M6.3c: Apuntado del cono (R) ---
+let aimingChannelAbility = null;
+let aimingChannelTimeout = 0;
+const AIMING_CHANNEL_TIMEOUT = 5.0;
+let aimingChannelIndicator = null;
+let aimingChannelDir = new THREE.Vector3(0, 0, 1);
 
 let isMovingToTarget = false;
 let playerSpeed = CONFIG.axieSpeed;
@@ -6718,6 +6874,19 @@ renderer.domElement.addEventListener('mouseup', (e) => {
             lanzarHabilidadArea();
             return;
         }
+        // M6.3c: si estamos apuntando un cono (R), fijar dirección y lanzar
+        if (aimingChannelAbility) {
+            const hab = aimingChannelAbility;
+            const dir = aimingChannelDir.clone();
+            cancelarApuntadoChannel();
+            // M6.3d: el Axie mira hacia donde apunta el cono. Como el modelo
+            // de Bing mira hacia +Z cuando rotation.y = 0, y la dirección "dir"
+            // es la del ratón, hay que sumar PI para que mire AL ratón en vez
+            // de al lado contrario.
+            playerModel.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+            iniciarChannel(hab, dir);
+            return;
+        }
         const target = getEntityFromClick(e);
         
         if (target && !target.isDead) {
@@ -6762,6 +6931,16 @@ renderer.domElement.addEventListener('mouseup', (e) => {
         }
         if (aimingAreaAbility) {
             cancelarApuntadoArea();
+            return;
+        }
+        // M6.3c: si estamos apuntando un cono (R), cancelar
+        if (aimingChannelAbility) {
+            cancelarApuntadoChannel();
+            return;
+        }
+        // M6.3: si estamos canalizando, cancelar
+        if (channelAbility) {
+            cancelarChannel();
             return;
         }
         if (shopOpen && !isDragging) {
@@ -7391,11 +7570,23 @@ function usarHabilidad(id) {
         return;
     }
 
-    // Ultimate: puede ser target, area o instant (varía por Axie).
+    // Ultimate: puede ser target, area, instant o channel (varía por Axie).
     // Para M3 solo cubrimos el subtipo target. Los demás subtipos se 
     // implementarán en M6.
     if (hab.tipo === 'ultimate' && hab.subtipo === 'target') {
         iniciarApuntado(hab);
+        return;
+    }
+    if (hab.tipo === 'ultimate' && hab.subtipo === 'area') {
+        iniciarApuntadoArea(hab);
+        return;
+    }
+    if (hab.tipo === 'ultimate' && hab.subtipo === 'instant') {
+        lanzarHabilidadInstant(hab);
+        return;
+    }
+    if (hab.tipo === 'ultimate' && hab.subtipo === 'channel') {
+        iniciarApuntadoChannel(hab);
         return;
     }
 
@@ -7684,6 +7875,16 @@ document.addEventListener('keydown', (e) => {
         }
         if (aimingAreaAbility) {
             cancelarApuntadoArea();
+            return;
+        }
+        // M6.3c: si estamos apuntando un cono (R), cancelar
+        if (aimingChannelAbility) {
+            cancelarApuntadoChannel();
+            return;
+        }
+        // M6.3: si estamos canalizando, cancelar
+        if (channelAbility) {
+            cancelarChannel();
             return;
         }
         if (gameFinished && !isAITrainingMode) return;
@@ -8092,6 +8293,8 @@ function gameLoop(time, token) {
         actualizarApuntadoArea(delta);
         // M4.1: animar ondas expansivas de área
         updateOndasActivas(delta);
+        // M6.3c: actualizar apuntado del cono (R)
+        actualizarApuntadoChannel(delta);
         // M6.2b: actualizar canalizada (R de Bing)
         actualizarChannel(delta);
         // M1.9b: edge panning (solo en modo jugador humano)
