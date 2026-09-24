@@ -2123,6 +2123,143 @@ function crearConoChannel(hab) {
     scene.add(channelIndicator);
 }
 
+// --- M6.2b: Actualizar la canalizada cada frame ---
+function actualizarChannel(delta) {
+    if (!channelAbility) return;
+    if (!playerModel) return;
+
+    // Detectar si el Axie se ha movido (más de 0.1 unidades)
+    const dx = playerModel.position.x - channelStartPos.x;
+    const dz = playerModel.position.z - channelStartPos.z;
+    if (Math.sqrt(dx * dx + dz * dz) > 0.1) {
+        console.log('⚠️ Canalización cancelada: el Axie se movió');
+        cancelarChannel();
+        return;
+    }
+
+    // Actualizar el tiempo de canalización
+    channelTimer += delta;
+    channelCooldownRafaga -= delta;
+
+    // Actualizar posición del cono (sigue al Axie si rota)
+    if (channelIndicator) {
+        channelIndicator.position.set(
+            playerModel.position.x,
+            GROUND_Y + 0.05,
+            playerModel.position.z
+        );
+    }
+
+    // Disparar ráfagas
+    if (channelCooldownRafaga <= 0 && channelRafagasRestantes > 0) {
+        dispararRafagaChannel();
+        channelRafagasRestantes--;
+        channelCooldownRafaga = channelIntervaloRafaga;
+    }
+
+    // Terminar cuando se acabe la duración o las ráfagas
+    if (channelTimer >= channelDuration || channelRafagasRestantes <= 0) {
+        console.log('✅ Canalización completada: ' + channelAbility.nombre);
+        cancelarChannel();
+    }
+}
+
+// --- M6.2b: Disparar una ráfaga del cono ---
+function dispararRafagaChannel() {
+    if (!channelAbility || !playerModel) return;
+    const hab = channelAbility;
+    const rango = hab.rango || 8.0;
+    const anguloMedio = (hab.angulo || 60) / 2 * Math.PI / 180;
+    const dano = hab.danoPorRafaga || 15;
+
+    // Dirección actual del Axie
+    const dirX = Math.sin(playerModel.rotation.y);
+    const dirZ = Math.cos(playerModel.rotation.y);
+    const origen = playerModel.position.clone();
+
+    // Ángulo central de la dirección
+    const anguloDir = Math.atan2(dirX, dirZ);
+
+    let impactos = 0;
+
+    // Función auxiliar: comprobar si un enemigo está dentro del cono
+    function estaEnCono(obj) {
+        if (!obj || !obj.position) return false;
+        const dx = obj.position.x - origen.x;
+        const dz = obj.position.z - origen.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist > rango) return false;
+        // Ángulo entre el enemigo y la dirección del Axie
+        const anguloEnemigo = Math.atan2(dx, dz);
+        let dif = anguloEnemigo - anguloDir;
+        while (dif > Math.PI) dif -= Math.PI * 2;
+        while (dif < -Math.PI) dif += Math.PI * 2;
+        return Math.abs(dif) <= anguloMedio;
+    }
+
+    // Minions enemigos
+    for (const m of enemigos) {
+        if (m.isDead || !m.group) continue;
+        if (estaEnCono(m.group)) {
+            m.health -= dano;
+            if (m.updateHealthBar) m.updateHealthBar();
+            if (m.flashHit) m.flashHit();
+            impactos++;
+            if (m.health <= 0 && m.die) m.die('player');
+        }
+    }
+
+    // Axie enemigo
+    if (typeof enemyAxieModel !== 'undefined' && enemyAxieModel && !enemyAxieIsDead) {
+        if (estaEnCono(enemyAxieModel)) {
+            enemyAxieTakeDamage(dano);
+            impactos++;
+        }
+    }
+
+    // Torres enemigas
+    for (const tw of towers) {
+        if (tw.isDead || !tw.isEnemy) continue;
+        if (estaEnCono(tw)) {
+            tw.health -= dano;
+            if (tw.updateHealthBar) tw.updateHealthBar();
+            impactos++;
+            if (tw.health <= 0 && tw.die) tw.die('player');
+        }
+    }
+
+    // Efecto visual: pequeña onda en el cono
+    // (un anillo azul en la punta del cono, se expande y desvanece)
+    const puntaX = origen.x + dirX * rango * 0.6;
+    const puntaZ = origen.z + dirZ * rango * 0.6;
+    const anillo = new THREE.Mesh(
+        new THREE.RingGeometry(0.2, 0.4, 20),
+        new THREE.MeshBasicMaterial({
+            color: INDICATOR_COLOR,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide,
+            depthTest: false,
+            depthWrite: false,
+            toneMapped: false
+        })
+    );
+    anillo.rotation.x = -Math.PI / 2;
+    anillo.position.set(puntaX, GROUND_Y + 0.06, puntaZ);
+    anillo.renderOrder = 1004;
+    scene.add(anillo);
+
+    // Guardar para animar (ya existe ondasActivas)
+    if (typeof ondasActivas !== 'undefined') {
+        ondasActivas.push({ mesh: anillo, t: 0, duracion: 0.3 });
+    }
+
+    // Sonido por ráfaga (suave)
+    if (typeof audio !== 'undefined') audio.play('shoot', { volume: 0.3 });
+
+    console.log('💥 Ráfaga ' + (channelAbility.rafagas - channelRafagasRestantes) + '/' + channelAbility.rafagas + ' | Impactos: ' + impactos);
+}
+
 // --- M4.1: animar ondas expansivas ---
 function updateOndasActivas(delta) {
     if (typeof ondasActivas === 'undefined') return;
@@ -7955,6 +8092,8 @@ function gameLoop(time, token) {
         actualizarApuntadoArea(delta);
         // M4.1: animar ondas expansivas de área
         updateOndasActivas(delta);
+        // M6.2b: actualizar canalizada (R de Bing)
+        actualizarChannel(delta);
         // M1.9b: edge panning (solo en modo jugador humano)
         updateEdgePanning(delta);
         // M1.9b: actualizar cámara con delta para respetar el modo
