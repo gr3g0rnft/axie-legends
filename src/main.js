@@ -7327,20 +7327,28 @@ function togglePasiva(hab) {
     actualizarBrilloHabilidad(id, nuevoEstado);
 }
 
-// --- M5.2: Brillo azul en el HUD cuando una pasiva está activa ---
+// --- M5.2 + Fix: Brillo azul en el HUD cuando una pasiva está activa ---
 function actualizarBrilloHabilidad(id, activa) {
     if (!habilidadCajas) return;
     const box = habilidadCajas[id];
     if (!box) return;
+
+    // Obtener el color original de la habilidad desde el catálogo
+    let colorOriginal = '#7cc8ff';   // fallback
+    try {
+        const hab = getHabilidad(id);
+        if (hab && hab.color) colorOriginal = hab.color;
+    } catch (e) { /* si falla, usa el fallback */ }
+
     if (activa) {
         // Halo azul cian brillante
         box.style.boxShadow = '0 0 12px 3px #00aaff, 0 0 4px 1px #00aaff inset';
         box.style.borderColor = '#00aaff';
         box.style.transition = 'box-shadow 0.2s ease, border-color 0.2s ease';
     } else {
-        // Quitar el brillo (volver al estado normal)
+        // Restaurar al estado original (borde del color de la habilidad)
         box.style.boxShadow = '';
-        box.style.borderColor = '';
+        box.style.borderColor = colorOriginal;
     }
 }
 
