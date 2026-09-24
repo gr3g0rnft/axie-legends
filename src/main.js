@@ -1749,6 +1749,52 @@ function actualizarHighlightApuntado() {
     scene.add(aimHighlight);
 }
 
+// --- M3.3: Lanzar la habilidad apuntada al objetivo actual ---
+function lanzarHabilidadApuntada() {
+    if (!aimingAbility || !aimingTarget) return;
+    const hab = aimingAbility;
+    const target = aimingTarget;
+
+    // Consumir maná y poner cooldown
+    playerMana -= hab.mana;
+    if (playerMana < 0) playerMana = 0;
+    cooldownsHabilidad[hab.id] = hab.cooldown;
+    updatePlayerHUD();
+    updateAbilityHUD();
+
+    // Obtener posición del objetivo
+    const obj = target.group || target.ref?.group || target;
+    const targetPos = obj && obj.position ? obj.position.clone() : null;
+    if (!targetPos) {
+        cancelarApuntado();
+        return;
+    }
+
+    // Crear proyectil desde el Axie hacia el objetivo
+    const origen = playerModel.position.clone();
+    origen.y = 0.9;
+
+    const proj = new PlayerProjectile(
+        origen,
+        { group: obj, isDead: false, type: 'minion', ref: target },
+        hab.dano,
+        proyectilDelPerfil()
+    );
+    playerProjectiles.push(proj);
+
+    // Feedback en consola + sonido
+    console.log('💥 Lanzada ' + hab.nombre + ' al objetivo | Daño: ' + hab.dano + ' | MP: ' + Math.floor(playerMana));
+    audio.play('shoot', { volume: 0.6 });
+
+    // Sonido de impacto a los 300ms
+    setTimeout(() => {
+        audio.play('hit', { volume: 0.5 });
+    }, 300);
+
+    // Cancelar el modo apuntar (quita el aro azul)
+    cancelarApuntado();
+}
+
 // --- M2.4: iniciar apuntado de área ---
 function iniciarApuntadoArea(hab) {
     if (!hab) return;
@@ -6297,6 +6343,12 @@ renderer.domElement.addEventListener('mouseup', (e) => {
 
     if (e.button === 0 && isMouseDownLeft) {
         isMouseDownLeft = false;
+        // M3.2: si estamos apuntando una habilidad y hay un objetivo 
+        // bajo el cursor, lanzarla al hacer click izquierdo
+        if (aimingAbility && aimingTarget) {
+            lanzarHabilidadApuntada();
+            return;
+        }
         const target = getEntityFromClick(e);
         
         if (target && !target.isDead) {
