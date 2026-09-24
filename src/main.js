@@ -1356,19 +1356,45 @@ function updateCameraHUD() {
         semi:   ['🎥', 'Cámara: Semi-libre'],
         free:   ['🆓', 'Cámara: Libre']
     };
-    const [icon, text] = map[cameraModeLoL] || ['', ''];
-    cameraHUD.innerHTML = `${icon} ${text} &nbsp; Zoom: ${cameraZoomLoL.toFixed(2)}`;
+    const [icon, text] = map[cameraMode] || ['', ''];
+    cameraHUD.innerHTML = `${icon} ${text} &nbsp; Zoom: ${cameraZoom.toFixed(2)}`;
+}
+
+function setCameraMode(mode) {
+    if (!['locked', 'semi', 'free'].includes(mode)) return;
+    if (cameraMode === mode) return;
+    
+    // Guardar estado actual para la transición (por si más adelante 
+    // añadimos interpolación)
+    cameraTransition.startPos.copy(camera.position);
+    cameraTransition.startTarget.copy(cameraSmoothTarget);
+    cameraTransition.startZoom = camera.zoom;
+    cameraTransition.active = true;
+    cameraTransition.t = 0;
+    
+    // Cambiar el modo
+    cameraMode = mode;
+    
+    // Ajustar el zoom por defecto según el modo
+    if (mode === 'locked') cameraZoom = 1.0;
+    else if (mode === 'semi') cameraZoom = 0.7;
+    // En 'free' se deja el zoom como está
+    
+    // Actualizar el HUD
+    updateCameraHUD();
+    
+    console.log('📷 Modo cámara LoL: ' + mode);
 }
 
 // --- SISTEMA DE CÁMARA TIPO LOL (M1) ---
-let cameraModeLoL = 'locked';   // 'locked' | 'semi' | 'free'
+let cameraMode = 'locked';   // 'locked' | 'semi' | 'free'
 let cameraHUD = null;
 let cameraTransition = { active: false, t: 0, duration: 0.5,
     startPos: new THREE.Vector3(), endPos: new THREE.Vector3(),
     startTarget: new THREE.Vector3(), endTarget: new THREE.Vector3(),
     startZoom: 1, endZoom: 1 };
 let cameraFreeMoveSpeed = 8;
-let cameraZoomLoL = 1;
+let cameraZoom = 1;
 const CAMERA_ZOOM_MIN = 0.5;
 const CAMERA_ZOOM_MAX = 1.5;
 
@@ -1396,7 +1422,7 @@ function inicializarCamaraFija() {
     // M1.3: Crear el HUD de la cámara (si no existe)
     if (!cameraHUD) {
         cameraHUD = document.createElement('div');
-        cameraHUD.id = 'camera-hud-lol';
+        cameraHUD.id = 'camera-hud';
         cameraHUD.style.cssText = `
             position: fixed; top: 100px; right: 12px; z-index: 3000;
             padding: 6px 10px; border-radius: 8px;
@@ -6628,6 +6654,17 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
+    // --- Tecla Y: cambiar modo de cámara ---
+    if (e.key === 'y' || e.key === 'Y') {
+        if (!gameStarted || gameFinished || isAITrainingMode) return;
+        if (gamePaused || shopOpen) return;
+        const modos = ['locked', 'semi', 'free'];
+        const idx = modos.indexOf(cameraMode);
+        const next = modos[(idx + 1) % modos.length];
+        setCameraMode(next);
+        return;
+    }
+
     // --- Teclas de habilidad (Q/W/E/R): todo lo decide el catalogo ---
     // Para reasignar teclas se cambia 'tecla' en src/config/habilidades.js.
     // Ojo: 'b' (nexo) y 'r' (reset) NO deben solaparse con el catalogo.
@@ -7199,6 +7236,10 @@ window.__debug = {
 },
 
 console.log('🔍 window.__debug listo: vista cenital + editor disponible');
+
+// --- EXPONER FUNCIONES DE CÁMARA LoL PARA DEPURACIÓN ---
+window.setCameraMode = setCameraMode;
+window.updateCameraHUD = updateCameraHUD;
 
 import './js/hub-control.js';
 import './js/inject-memory.js';
