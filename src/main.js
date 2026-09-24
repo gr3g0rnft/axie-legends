@@ -2014,6 +2014,115 @@ function lanzarHabilidadArea() {
     cancelarApuntadoArea();
 }
 
+// --- M6.2a: Iniciar canalizada (R estilo Miss Fortune) ---
+function iniciarChannel(hab) {
+    if (!hab) return;
+    if (channelAbility) cancelarChannel();
+
+    // Verificar maná
+    if (playerMana < hab.mana) {
+        console.log('⛔ Mana insuficiente para ' + hab.nombre);
+        return;
+    }
+
+    // Consumir maná y poner cooldown
+    playerMana -= hab.mana;
+    if (playerMana < 0) playerMana = 0;
+    cooldownsHabilidad[hab.id] = hab.cooldown;
+    updatePlayerHUD();
+    updateAbilityHUD();
+
+    // Configurar estado
+    channelAbility = hab;
+    channelTimer = 0;
+    channelDuration = hab.duracion || 2.0;
+    channelRafagasRestantes = hab.rafagas || 8;
+    channelIntervaloRafaga = channelDuration / channelRafagasRestantes;
+    channelCooldownRafaga = 0;
+    channelStartPos.copy(playerModel.position);
+
+    // Dirección: hacia donde mira el Axie actualmente
+    // (o hacia el ratón si quieres apuntar; de momento, hacia donde mira)
+    channelDireccion.set(
+        Math.sin(playerModel.rotation.y),
+        0,
+        Math.cos(playerModel.rotation.y)
+    );
+
+    // Crear cono visual
+    crearConoChannel(hab);
+
+    console.log('🎯 Canalizando: ' + hab.nombre + ' | Duración: ' + channelDuration + 's | Ráfagas: ' + channelRafagasRestantes);
+}
+
+// --- M6.2a: Cancelar canalizada ---
+function cancelarChannel() {
+    if (!channelAbility) return;
+    console.log('❌ Canalización cancelada: ' + channelAbility.nombre);
+    channelAbility = null;
+    channelTimer = 0;
+    channelDuration = 0;
+    channelRafagasRestantes = 0;
+    channelCooldownRafaga = 0;
+    if (channelIndicator) {
+        scene.remove(channelIndicator);
+        channelIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        channelIndicator = null;
+    }
+}
+
+// --- M6.2a: Crear el cono visual azul en el suelo ---
+function crearConoChannel(hab) {
+    if (channelIndicator) {
+        scene.remove(channelIndicator);
+        channelIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        channelIndicator = null;
+    }
+
+    const rango = hab.rango || 8.0;
+    const angulo = (hab.angulo || 60) * Math.PI / 180;
+    const radioBase = 0.4;
+
+    // Crear geometría de cono (triángulo expandido) usando Shape
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    const pasos = 16;
+    for (let i = 0; i <= pasos; i++) {
+        const t = i / pasos;
+        const a = -angulo / 2 + angulo * t;
+        const x = Math.sin(a) * rango;
+        const y = Math.cos(a) * rango;
+        shape.lineTo(x, y);
+    }
+    shape.lineTo(0, 0);
+
+    const geo = new THREE.ShapeGeometry(shape);
+    const mat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 0.25,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    const cono = new THREE.Mesh(geo, mat);
+    cono.rotation.x = -Math.PI / 2;
+    cono.position.set(playerModel.position.x, GROUND_Y + 0.05, playerModel.position.z);
+    cono.rotation.z = -playerModel.rotation.y;
+    cono.renderOrder = 1003;
+
+    channelIndicator = new THREE.Group();
+    channelIndicator.add(cono);
+    scene.add(channelIndicator);
+}
+
 // --- M4.1: animar ondas expansivas ---
 function updateOndasActivas(delta) {
     if (typeof ondasActivas === 'undefined') return;
@@ -4745,6 +4854,17 @@ let aimingAreaPos = null;       // THREE.Vector3 con la posición del círculo
 let aimingAreaTimeout = 0;      // Temporizador de cancelación
 const AIMING_AREA_TIMEOUT_MAX = 5.0;
 let aimAreaIndicator = null;    // Grupo con el círculo visual
+// --- M6.2: Canalizada estilo Miss Fortune (R de Bing) ---
+let channelAbility = null;        // Habilidad canalizada activa (null si no)
+let channelTimer = 0;             // Tiempo transcurrido de canalización
+let channelDuration = 0;          // Duración total
+let channelRafagasRestantes = 0;  // Cuántas ráfagas faltan
+let channelCooldownRafaga = 0;    // Segundos hasta la próxima ráfaga
+let channelIntervaloRafaga = 0;   // Segundos entre ráfagas
+let channelDireccion = new THREE.Vector3(0, 0, 1); // Dirección (eje X-Z)
+let channelStartPos = new THREE.Vector3(0, 0, 0);  // Para detectar movimiento
+let channelIndicator = null;      // Cono visual en el suelo
+
 let isMovingToTarget = false;
 let playerSpeed = CONFIG.axieSpeed;
 const playerSpawnPosition = new THREE.Vector3(0, 0, -20);
