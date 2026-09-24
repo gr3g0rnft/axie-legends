@@ -7151,12 +7151,62 @@ function usarHabilidad(id) {
     // Habilidad pasiva (E): es un TOGGLE (activar/desactivar).
     // Por ahora, mensaje provisional. Se implementará en M5.
     if (hab.tipo === 'pasiva') {
-        console.log('ℹ️ ' + hab.nombre + ' es pasiva toggle (pendiente M5)');
+        togglePasiva(hab);
         return;
     }
 
     // Otros tipos: aplicar directamente (compatibilidad)
     aplicarHabilidad(hab);
+}
+
+// --- M5.1: Estado de las pasivas activadas/desactivadas ---
+const pasivasActivas = {};   // { id: true|false }
+
+// --- M5.1: Aplicar/deshacer los bonus de una pasiva ---
+function aplicarBonusPasiva(hab, activar) {
+    if (!hab.bonus) return;
+    const signo = activar ? 1 : -1;
+    // Velocidad de ataque: atkSpeed es multiplicador
+    if (hab.bonus.atkSpeed) {
+        // OJO: attackSpeed es un intervalo (segundos), no velocidad.
+        // Menor = más rápido. Si queremos +10% velocidad de ataque, 
+        // reducimos el intervalo en 10%: attackSpeed /= 1.10 al activar.
+        // Pero como es togglable, aplicamos y deshacemos la misma 
+        // operación inversa.
+        const factor = activar ? (1 / (1 + hab.bonus.atkSpeed)) : (1 + hab.bonus.atkSpeed);
+        attackSpeed *= factor;
+    }
+    // Daño: dano es multiplicador
+    if (hab.bonus.dano) {
+        const factor = activar ? (1 + hab.bonus.dano) : (1 / (1 + hab.bonus.dano));
+        attackDamage *= factor;
+    }
+}
+
+// --- M5.1: Toggle de una pasiva (activar/desactivar) ---
+function togglePasiva(hab) {
+    if (!hab) return;
+    const id = hab.id || hab.nombre;
+    const estabaActiva = !!pasivasActivas[id];
+    const nuevoEstado = !estabaActiva;
+
+    aplicarBonusPasiva(hab, nuevoEstado);
+    pasivasActivas[id] = nuevoEstado;
+
+    // Actualizar HUD del jugador (por si muestra stats)
+    if (typeof updatePlayerHUD === 'function') updatePlayerHUD();
+
+    // Feedback en consola
+    if (nuevoEstado) {
+        console.log('✅ Pasiva ACTIVADA: ' + hab.nombre + (hab.bonus ? ' | Bonus: ' + JSON.stringify(hab.bonus) : ''));
+    } else {
+        console.log('⭕ Pasiva DESACTIVADA: ' + hab.nombre);
+    }
+
+    // M5.2 (futuro): actualizar el brillo del icono en el HUD
+    if (typeof actualizarBrilloHabilidad === 'function') {
+        actualizarBrilloHabilidad(id, nuevoEstado);
+    }
 }
 
 // Efecto segun el tipo. Cada tipo nuevo que inventes se anade aqui.
