@@ -6778,6 +6778,22 @@ window.addEventListener('wheel', (e) => {
     updateCameraHUD();
 }, { passive: false });
 
+// --- F11: alternar pantalla completa ---
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'F11') {
+        e.preventDefault();
+        if (!document.fullscreenElement) {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+    }
+});
+
 // Tab se suelta: se esconde el marcador.
 document.addEventListener('keyup', (e) => {
     if (e.key === 'Tab') ocultarMarcador();
