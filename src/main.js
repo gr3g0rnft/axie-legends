@@ -1349,6 +1349,26 @@ let CAMERA_FIXED_Y = 0;
 let CAMERA_FIXED_TARGET_Y = 0;
 let camaraInicializada = false;
 
+// --- SISTEMA DE CÁMARA TIPO LOL (M1) ---
+let cameraModeLoL = 'locked';   // 'locked' | 'semi' | 'free'
+let cameraHUD = null;
+let cameraTransition = { active: false, t: 0, duration: 0.5,
+    startPos: new THREE.Vector3(), endPos: new THREE.Vector3(),
+    startTarget: new THREE.Vector3(), endTarget: new THREE.Vector3(),
+    startZoom: 1, endZoom: 1 };
+let cameraFreeMoveSpeed = 8;
+let cameraZoomLoL = 1;
+const CAMERA_ZOOM_MIN = 0.5;
+const CAMERA_ZOOM_MAX = 1.5;
+
+// Variables para edge panning (mover cámara con bordes del ratón)
+let mouseScreenX = 0;
+let mouseScreenY = 0;
+let screenWidth = window.innerWidth;
+let screenHeight = window.innerHeight;
+let edgePanMargin = 40;
+let edgePanSpeed = 15;
+
 function inicializarCamaraFija() {
     if (!groundReady) return;
     CAMERA_FIXED_Y = GROUND_Y + CAMERA_OFFSET.y;
