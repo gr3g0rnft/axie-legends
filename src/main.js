@@ -1548,6 +1548,77 @@ function updateMoveIndicator(delta) {
     moveIndicator.scale.set(scale, scale, 1);
 }
 
+// --- M2.2: Aro de objetivo azul (click izquierdo sobre enemigo) ---
+function showTargetIndicator(target) {
+    if (targetIndicator) {
+        scene.remove(targetIndicator);
+        targetIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        targetIndicator = null;
+    }
+    if (!target) return;
+
+    const obj = target.group || target.ref?.group || target.ref || target;
+    if (!obj || !obj.position) return;
+
+    // Radios fijos por tipo de objetivo
+    let radioBase = 0.5;
+    const tipo = target.type;
+    if (tipo === 'minion') {
+        if (target.esBig) radioBase = 0.42;
+        else if (target.tipo === 'mage') radioBase = 0.28;
+        else radioBase = 0.32;
+    } else if (tipo === 'enemy_axie') {
+        radioBase = 0.50;
+    } else if (tipo === 'tower') {
+        radioBase = 0.80;
+    } else if (tipo === 'nexus') {
+        radioBase = 1.40;
+    } else if (tipo === 'shop') {
+        radioBase = 0.75;
+    }
+
+    targetIndicator = new THREE.Group();
+    const gro = radioBase * 0.12;
+    const ringGeo = new THREE.RingGeometry(radioBase - gro, radioBase, 40);
+    const ringMat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    targetIndicator.add(ring);
+
+    targetIndicator.position.set(obj.position.x, GROUND_Y + 0.04, obj.position.z);
+    targetIndicator.renderOrder = 998;
+    scene.add(targetIndicator);
+}
+
+function updateTargetIndicator(delta) {
+    if (!targetIndicator) return;
+    if (!window.currentTarget || window.currentTarget.isDead) {
+        scene.remove(targetIndicator);
+        targetIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        targetIndicator = null;
+        return;
+    }
+    const obj = window.currentTarget.group || window.currentTarget.ref?.group || window.currentTarget;
+    if (obj && obj.position) {
+        targetIndicator.position.set(obj.position.x, GROUND_Y + 0.04, obj.position.z);
+    }
+    targetIndicator.rotation.y += delta * 0.8;
+}
+
 // --- Listener global de posición del ratón para edge panning ---
 // Necesario para saber dónde está el cursor en la pantalla.
 if (!window.__mousePos) {
@@ -4247,6 +4318,7 @@ let moveIndicator = null;
 let moveIndicatorTimer = 0;
 const MOVE_INDICATOR_DURATION = 0.5;
 const INDICATOR_COLOR = 0x00aaff;   // azul cian unificado
+let targetIndicator = null;
 let isMovingToTarget = false;
 let playerSpeed = CONFIG.axieSpeed;
 const playerSpawnPosition = new THREE.Vector3(0, 0, -20);
@@ -5955,6 +6027,7 @@ renderer.domElement.addEventListener('mouseup', (e) => {
         if (target && !target.isDead) {
             window.currentTarget = target;
             window.showTarget(target);
+            showTargetIndicator(target);
             
             const targetPos = target.group ? target.group.position : target.position;
             if (targetPos) {
@@ -5980,6 +6053,7 @@ renderer.domElement.addEventListener('mouseup', (e) => {
         } else {
             window.currentTarget = null;
             targetUI.style.display = 'none';
+            showTargetIndicator(null);
         }
     }
 
@@ -7190,6 +7264,8 @@ function gameLoop(time, token) {
     } else {
         // M2.1: actualizar aro de movimiento
         updateMoveIndicator(delta);
+        // M2.2: actualizar aro de objetivo
+        updateTargetIndicator(delta);
         // M1.9b: edge panning (solo en modo jugador humano)
         updateEdgePanning(delta);
         // M1.9b: actualizar cámara con delta para respetar el modo
