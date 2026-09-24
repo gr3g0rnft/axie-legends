@@ -7055,7 +7055,13 @@ function gameLoop(time, token) {
         if (isAITrainingMode) {
             updateDynamicCamera(delta);
             updateDynamicHUDForCamera();
-        } else { if (playerModel) updateCameraPosition(); if (camaraInicializada) camera.position.y = CAMERA_FIXED_Y; }
+        } else {
+            // M1.9b: edge panning (solo en modo jugador humano)
+            updateEdgePanning(delta);
+            // M1.9b: actualizar cámara con delta para respetar el modo
+            if (playerModel) updateCameraPosition(delta);
+            if (camaraInicializada) camera.position.y = CAMERA_FIXED_Y;
+        }
         renderer.render(scene, camera);
         requestAnimationFrame((t) => gameLoop(t, token));
         return;
@@ -7090,7 +7096,10 @@ function gameLoop(time, token) {
         updateDynamicCamera(delta);
         updateDynamicHUDForCamera();
     } else {
-        if (playerModel) updateCameraPosition();
+        // M1.9b: edge panning (solo en modo jugador humano)
+        updateEdgePanning(delta);
+        // M1.9b: actualizar cámara con delta para respetar el modo
+        if (playerModel) updateCameraPosition(delta);
         if (camaraInicializada) camera.position.y = CAMERA_FIXED_Y;
     }
     // Editor de mapa: usar sus cámaras
