@@ -6386,6 +6386,15 @@ renderer.domElement.addEventListener('mouseup', (e) => {
 
     if (e.button === 2 && isMouseDownRight) {
         isMouseDownRight = false;
+        // M3.4: si estamos apuntando, cancelar
+        if (aimingAbility) {
+            cancelarApuntado();
+            return;
+        }
+        if (aimingAreaAbility) {
+            cancelarApuntadoArea();
+            return;
+        }
         if (shopOpen && !isDragging) {
             closeShop();
             isDragging = false;
@@ -7226,6 +7235,15 @@ function ocultarMarcador() {
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        // M3.4: si estamos apuntando, cancelar
+        if (aimingAbility) {
+            cancelarApuntado();
+            return;
+        }
+        if (aimingAreaAbility) {
+            cancelarApuntadoArea();
+            return;
+        }
         if (gameFinished && !isAITrainingMode) return;
         if (shopOpen) { closeShop(); return; }
         if (isAITrainingMode || gameStarted) {
