@@ -1,5 +1,10 @@
 // =============================================
 // CATÁLOGO DE HABILIDADES POR AXIE (Q / W / E / R)
+// Estilo League of Legends:
+//   Q = habilidad dirigida (click en enemigo)
+//   W = habilidad de área (click en el suelo)
+//   E = habilidad pasiva (se activa sola)
+//   R = ultimate (varía por personaje)
 // =============================================
 
 export const HABILIDADES_POR_AXIE = {
@@ -9,45 +14,51 @@ export const HABILIDADES_POR_AXIE = {
             nombre: 'Plasma Blast',
             icono: 'assets/habilidades/bing_q_plasma_blast.jpg',
             color: '#0ff',
-            tipo: 'area',
+            tipo: 'target',           // dirigida
             mana: 30,
             cooldown: 5.0,
-            radio: 8.0,
-            dano: 55,
-            efecto: 'projectile'
+            rango: 8.0,               // alcance máximo
+            dano: 55
         },
         w: {
             tecla: 'W',
             nombre: 'Thruster Dash',
             icono: 'assets/habilidades/bing_w_thruster_dash.jpg',
             color: '#ff6600',
-            tipo: 'utilidad',
+            tipo: 'area',             // área en el suelo
             mana: 25,
             cooldown: 10.0,
-            alcance: 12.0,
-            efecto: 'dash_back'
+            rango: 6.0,               // alcance del área
+            radio: 2.5,               // radio del círculo
+            dano: 40,
+            efecto: 'dash'            // además de dañar, hace dash
         },
         e: {
             tecla: 'E',
             nombre: 'Overclock',
             icono: 'assets/habilidades/bing_e_overclock.jpg',
             color: '#7cc8ff',
-            tipo: 'utilidad',
-            mana: 40,
-            cooldown: 0,
-            efecto: 'atk_speed_stack'
+            tipo: 'pasiva',           // pasiva
+            bonus: {
+                atkSpeed: 0.10,       // +10% velocidad de ataque
+                dano: 0.05            // +5% daño
+            }
         },
         r: {
             tecla: 'R',
             nombre: 'Inferno Cannon',
             icono: 'assets/habilidades/bing_r_inferno_cannon.jpg',
             color: '#ff4400',
-            tipo: 'area',
+            tipo: 'ultimate',
+            subtipo: 'channel',       // canalizada estilo Miss Fortune
             mana: 100,
             cooldown: 80.0,
-            radio: 10.0,
-            dano: 120,
-            efecto: 'dot'
+            rango: 8.0,                // alcance máximo del cono
+            angulo: 60,                // ángulo del cono en grados
+            duracion: 2.0,             // segundos de canalización
+            rafagas: 8,                // número de oleadas
+            danoPorRafaga: 15,         // daño por cada oleada
+            // dano total = 8 * 15 = 120
         }
     },
     kotaro: {
@@ -56,46 +67,47 @@ export const HABILIDADES_POR_AXIE = {
             nombre: 'Flash Slash',
             icono: 'assets/habilidades/kotaro_q_flash_slash.jpg',
             color: '#88ccff',
-            tipo: 'area',
+            tipo: 'target',
             mana: 35,
             cooldown: 8.0,
-            radio: 5.5,
-            dano: 60,
-            efecto: 'deep_cut'
+            rango: 4.5,
+            dano: 60
         },
         w: {
             tecla: 'W',
             nombre: 'Blade Guard',
             icono: 'assets/habilidades/kotaro_w_blade_guard.jpg',
             color: '#ffcc88',
-            tipo: 'utilidad',
+            tipo: 'area',
             mana: 25,
             cooldown: 14.0,
-            alcance: 4.0,
-            efecto: 'stun_counter'
+            rango: 5.0,
+            radio: 2.0,
+            dano: 30,
+            efecto: 'stun'            // aturde
         },
         e: {
             tecla: 'E',
             nombre: 'Dance Thousand',
             icono: 'assets/habilidades/kotaro_e_dance.jpg',
             color: '#ff88cc',
-            tipo: 'area',
-            mana: 50,
-            cooldown: 20.0,
-            radio: 7.0,
-            dano: 35,
-            efecto: 'bleed_stack'
+            tipo: 'pasiva',
+            bonus: {
+                dano: 0.08,           // +8% daño
+                critChance: 0.10      // +10% crítico
+            }
         },
         r: {
             tecla: 'R',
             nombre: 'Demon Execution',
             icono: 'assets/habilidades/kotaro_r_demon_execution.jpg',
             color: '#ff4444',
-            tipo: 'utilidad',
+            tipo: 'ultimate',
+            subtipo: 'target',
             mana: 80,
             cooldown: 80.0,
-            alcance: 12.0,
-            efecto: 'execute_reset'
+            rango: 12.0,
+            dano: 200
         }
     }
 };
@@ -122,4 +134,6 @@ export function getHabilidad(id){
     return h ? Object.assign({id}, h) : null;
 }
 
-export function getHabilidadesSet(){ return HABILIDADES_POR_AXIE[axieActual] || HABILIDADES_POR_AXIE.bing; }
+export function getHabilidadesSet(){ 
+    return HABILIDADES_POR_AXIE[axieActual] || HABILIDADES_POR_AXIE.bing; 
+}
