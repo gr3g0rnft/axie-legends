@@ -7204,8 +7204,23 @@ function togglePasiva(hab) {
     }
 
     // M5.2 (futuro): actualizar el brillo del icono en el HUD
-    if (typeof actualizarBrilloHabilidad === 'function') {
-        actualizarBrilloHabilidad(id, nuevoEstado);
+    actualizarBrilloHabilidad(id, nuevoEstado);
+}
+
+// --- M5.2: Brillo azul en el HUD cuando una pasiva está activa ---
+function actualizarBrilloHabilidad(id, activa) {
+    if (!habilidadCajas) return;
+    const box = habilidadCajas[id];
+    if (!box) return;
+    if (activa) {
+        // Halo azul cian brillante
+        box.style.boxShadow = '0 0 12px 3px #00aaff, 0 0 4px 1px #00aaff inset';
+        box.style.borderColor = '#00aaff';
+        box.style.transition = 'box-shadow 0.2s ease, border-color 0.2s ease';
+    } else {
+        // Quitar el brillo (volver al estado normal)
+        box.style.boxShadow = '';
+        box.style.borderColor = '';
     }
 }
 
