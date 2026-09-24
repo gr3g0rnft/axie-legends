@@ -1478,6 +1478,76 @@ function updateCameraPosition(delta) {
     camera.updateProjectionMatrix();
 }
 
+// --- M2.1: Aro de movimiento azul (click derecho en el suelo) ---
+function showMoveIndicator(x, z) {
+    if (moveIndicator) {
+        scene.remove(moveIndicator);
+        moveIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        moveIndicator = null;
+    }
+    moveIndicator = new THREE.Group();
+    const radioBase = 0.22;
+    const gro = radioBase * 0.15;
+    const ringGeo = new THREE.RingGeometry(radioBase - gro, radioBase, 40);
+    const ringMat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    moveIndicator.add(ring);
+    const dotGeo = new THREE.CircleGeometry(radioBase * 0.20, 16);
+    const dotMat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    const dot = new THREE.Mesh(dotGeo, dotMat);
+    dot.rotation.x = -Math.PI / 2;
+    moveIndicator.add(dot);
+    moveIndicator.position.set(x, GROUND_Y + 0.05, z);
+    moveIndicator.renderOrder = 999;
+    scene.add(moveIndicator);
+    moveIndicatorTimer = MOVE_INDICATOR_DURATION;
+}
+
+function updateMoveIndicator(delta) {
+    if (!moveIndicator) return;
+    moveIndicatorTimer -= delta;
+    if (moveIndicatorTimer <= 0) {
+        scene.remove(moveIndicator);
+        moveIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        moveIndicator = null;
+        return;
+    }
+    const t = moveIndicatorTimer / MOVE_INDICATOR_DURATION;
+    moveIndicator.traverse(child => {
+        if (child.material) {
+            if (child.material.userData.baseOpacity === undefined) {
+                child.material.userData.baseOpacity = child.material.opacity;
+            }
+            child.material.opacity = child.material.userData.baseOpacity * t;
+        }
+    });
+    const scale = 1 + (1 - t) * 0.3;
+    moveIndicator.scale.set(scale, scale, 1);
+}
+
 // --- Listener global de posición del ratón para edge panning ---
 // Necesario para saber dónde está el cursor en la pantalla.
 if (!window.__mousePos) {
@@ -4172,6 +4242,11 @@ let currentAttackTipo = 'bala'; // 'bala' para Axies de fuego, 'melee' para kata
 let attackAnimTimer = 0;       // temporizador del gesto de ataque del Axie
 let currentAnim = 'idle';
 let targetPosition = null;
+// --- INDICADORES VISUALES AZULES (M2) ---
+let moveIndicator = null;
+let moveIndicatorTimer = 0;
+const MOVE_INDICATOR_DURATION = 0.5;
+const INDICATOR_COLOR = 0x00aaff;   // azul cian unificado
 let isMovingToTarget = false;
 let playerSpeed = CONFIG.axieSpeed;
 const playerSpawnPosition = new THREE.Vector3(0, 0, -20);
@@ -5924,6 +5999,7 @@ renderer.domElement.addEventListener('mouseup', (e) => {
                 isAutoMovingToTarget = false;
                 window.currentTarget = null;
                 targetUI.style.display = 'none';
+                showMoveIndicator(point.x, point.z);
             }
         }
         isDragging = false;
@@ -7112,6 +7188,8 @@ function gameLoop(time, token) {
         updateDynamicCamera(delta);
         updateDynamicHUDForCamera();
     } else {
+        // M2.1: actualizar aro de movimiento
+        updateMoveIndicator(delta);
         // M1.9b: edge panning (solo en modo jugador humano)
         updateEdgePanning(delta);
         // M1.9b: actualizar cámara con delta para respetar el modo
