@@ -1349,6 +1349,17 @@ let CAMERA_FIXED_Y = 0;
 let CAMERA_FIXED_TARGET_Y = 0;
 let camaraInicializada = false;
 
+function updateCameraHUD() {
+    if (!cameraHUD) return;
+    const map = {
+        locked: ['🔒', 'Cámara: Bloqueada'],
+        semi:   ['🎥', 'Cámara: Semi-libre'],
+        free:   ['🆓', 'Cámara: Libre']
+    };
+    const [icon, text] = map[cameraModeLoL] || ['', ''];
+    cameraHUD.innerHTML = `${icon} ${text} &nbsp; Zoom: ${cameraZoomLoL.toFixed(2)}`;
+}
+
 // --- SISTEMA DE CÁMARA TIPO LOL (M1) ---
 let cameraModeLoL = 'locked';   // 'locked' | 'semi' | 'free'
 let cameraHUD = null;
