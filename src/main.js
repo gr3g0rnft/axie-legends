@@ -1619,6 +1619,136 @@ function updateTargetIndicator(delta) {
     targetIndicator.rotation.y += delta * 0.8;
 }
 
+// --- M2.3: iniciar apuntado de habilidad dirigida ---
+function iniciarApuntado(hab) {
+    if (!hab) return;
+    if (aimingAbility) cancelarApuntado();
+    aimingAbility = hab;
+    aimingTarget = null;
+    aimingTimeout = AIMING_TIMEOUT_MAX;
+    console.log('🎯 Apuntando: ' + hab.nombre + ' (click izq en enemigo para lanzar, ESC para cancelar)');
+}
+
+// --- M2.3: cancelar apuntado ---
+function cancelarApuntado() {
+    if (!aimingAbility && !aimHighlight) return;
+    if (aimingAbility) {
+        console.log('❌ Apuntado cancelado: ' + aimingAbility.nombre);
+    }
+    aimingAbility = null;
+    aimingTarget = null;
+    aimingTimeout = 0;
+    if (aimHighlight) {
+        scene.remove(aimHighlight);
+        aimHighlight.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        aimHighlight = null;
+    }
+}
+
+// --- M2.3: actualizar apuntado (detecta enemigo bajo el cursor) ---
+function actualizarApuntado(delta) {
+    if (!aimingAbility) return;
+    if (!renderer || !camera) return;
+
+    // Reducir el temporizador
+    aimingTimeout -= delta;
+    if (aimingTimeout <= 0) {
+        cancelarApuntado();
+        return;
+    }
+
+    // Raycast desde el ratón
+    const m = window.__mousePos;
+    if (!m) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+        ((m.x - rect.left) / rect.width) * 2 - 1,
+        -((m.y - rect.top) / rect.height) * 2 + 1
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+
+    // Recoger todos los enemigos vivos
+    const selectables = [];
+    for (const em of enemigos) {
+        if (em.isDead || !em.group) continue;
+        em.group.traverse(c => {
+            if (c.isMesh) {
+                c.userData.aimTargetRef = em;
+                selectables.push(c);
+            }
+        });
+    }
+    if (enemyAxieModel && typeof enemyAxieIsDead !== 'undefined' && !enemyAxieIsDead) {
+        enemyAxieModel.traverse(c => {
+            if (c.isMesh) {
+                c.userData.aimTargetRef = { type: 'enemy_axie', group: enemyAxieModel };
+                selectables.push(c);
+            }
+        });
+    }
+    for (const tw of towers) {
+        if (tw.isDead || !tw.isEnemy || !tw.group) continue;
+        tw.group.traverse(c => {
+            if (c.isMesh) {
+                c.userData.aimTargetRef = tw;
+                selectables.push(c);
+            }
+        });
+    }
+
+    // Raycast
+    const intersects = raycaster.intersectObjects(selectables, false);
+    let nuevoTarget = null;
+    if (intersects.length > 0) {
+        nuevoTarget = intersects[0].object.userData.aimTargetRef || null;
+    }
+
+    // Si cambió el target, actualizar el aro
+    if (nuevoTarget !== aimingTarget) {
+        aimingTarget = nuevoTarget;
+        actualizarHighlightApuntado();
+    }
+}
+
+// --- M2.3: aro azul de resaltado del objetivo apuntado ---
+function actualizarHighlightApuntado() {
+    if (aimHighlight) {
+        scene.remove(aimHighlight);
+        aimHighlight.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        aimHighlight = null;
+    }
+    if (!aimingTarget) return;
+
+    const obj = aimingTarget.group || aimingTarget.ref?.group || aimingTarget;
+    if (!obj || !obj.position) return;
+
+    // Aro azul cian (mismo color que los demás indicadores)
+    const radio = 0.45;
+    const gro = radio * 0.10;
+    const geo = new THREE.RingGeometry(radio - gro, radio, 40);
+    const mat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    aimHighlight = new THREE.Mesh(geo, mat);
+    aimHighlight.rotation.x = -Math.PI / 2;
+    aimHighlight.position.set(obj.position.x, GROUND_Y + 0.06, obj.position.z);
+    aimHighlight.renderOrder = 1000;
+    scene.add(aimHighlight);
+}
+
 // --- Listener global de posición del ratón para edge panning ---
 // Necesario para saber dónde está el cursor en la pantalla.
 if (!window.__mousePos) {
@@ -4319,6 +4449,12 @@ let moveIndicatorTimer = 0;
 const MOVE_INDICATOR_DURATION = 0.5;
 const INDICATOR_COLOR = 0x00aaff;   // azul cian unificado
 let targetIndicator = null;
+// --- M2.3: Sistema de apuntado de habilidad dirigida (Q) ---
+let aimingAbility = null;    // Habilidad que estamos apuntando (null si no)
+let aimingTarget = null;     // Enemigo bajo el cursor (null si ninguno)
+let aimingTimeout = 0;       // Temporizador de cancelación automática
+const AIMING_TIMEOUT_MAX = 5.0;
+let aimHighlight = null;     // Aro azul que resalta el objetivo apuntado
 let isMovingToTarget = false;
 let playerSpeed = CONFIG.axieSpeed;
 const playerSpawnPosition = new THREE.Vector3(0, 0, -20);
@@ -7266,6 +7402,8 @@ function gameLoop(time, token) {
         updateMoveIndicator(delta);
         // M2.2: actualizar aro de objetivo
         updateTargetIndicator(delta);
+        // M2.3: actualizar apuntado (busca enemigo bajo el cursor)
+        actualizarApuntado(delta);
         // M1.9b: edge panning (solo en modo jugador humano)
         updateEdgePanning(delta);
         // M1.9b: actualizar cámara con delta para respetar el modo
