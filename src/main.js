@@ -6674,6 +6674,21 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// --- Rueda del ratón: zoom de la cámara ---
+window.addEventListener('wheel', (e) => {
+    if (!gameStarted || gameFinished || isAITrainingMode) return;
+    if (gamePaused || shopOpen) return;
+    e.preventDefault();
+    const step = 0.05;
+    const dir = Math.sign(e.deltaY);
+    cameraZoom = Math.max(CAMERA_ZOOM_MIN, Math.min(CAMERA_ZOOM_MAX, cameraZoom - dir * step));
+    if (typeof camera !== 'undefined' && camera) {
+        camera.zoom = cameraZoom;
+        camera.updateProjectionMatrix();
+    }
+    updateCameraHUD();
+}, { passive: false });
+
 // Tab se suelta: se esconde el marcador.
 document.addEventListener('keyup', (e) => {
     if (e.key === 'Tab') ocultarMarcador();
