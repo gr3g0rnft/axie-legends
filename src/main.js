@@ -1478,6 +1478,70 @@ function updateCameraPosition(delta) {
     camera.updateProjectionMatrix();
 }
 
+// --- Listener global de posición del ratón para edge panning ---
+// Necesario para saber dónde está el cursor en la pantalla.
+if (!window.__mousePos) {
+    window.__mousePos = { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight };
+    window.addEventListener('mousemove', (e) => {
+        window.__mousePos.x = e.clientX;
+        window.__mousePos.y = e.clientY;
+    });
+    window.addEventListener('resize', () => {
+        window.__mousePos.w = window.innerWidth;
+        window.__mousePos.h = window.innerHeight;
+    });
+}
+
+// --- Edge panning: mueve la cámara cuando el ratón toca los bordes ---
+// Solo en modos 'semi' y 'free'. En 'locked' no aplica.
+// La conversión pantalla -> mundo se hace con la orientación actual de 
+// la cámara, para NO invertir los ejes si el carril está rotado.
+function updateEdgePanning(delta) {
+    // Solo en modos semi y free
+    if (cameraMode !== 'semi' && cameraMode !== 'free') return;
+    // No hacer edge pan si el juego no ha empezado, está pausado o hay 
+    // una tienda abierta
+    if (!gameStarted || gameFinished || isAITrainingMode) return;
+    if (gamePaused) return;
+    if (typeof shopOpen !== 'undefined' && shopOpen) return;
+
+    const m = window.__mousePos;
+    if (!m) return;
+
+    const margen = 40;      // píxeles desde el borde
+    const velocidad = 15;   // unidades por segundo
+
+    // Calcular panX y panY (-1, 0 o +1)
+    let panX = 0;
+    let panY = 0;
+    if (m.x < margen) panX = -1;
+    else if (m.x > m.w - margen) panX = 1;
+    if (m.y < margen) panY = -1;
+    else if (m.y > m.h - margen) panY = 1;
+
+    // Si no está en ningún borde, no hacer nada
+    if (panX === 0 && panY === 0) return;
+
+    // Conversión PANTALLA -> MUNDO (no invertir)
+    const camForward = new THREE.Vector3();
+    camera.getWorldDirection(camForward);
+    camForward.y = 0;
+    camForward.normalize();
+
+    const camRight = new THREE.Vector3();
+    camRight.crossVectors(camForward, new THREE.Vector3(0, 1, 0)).normalize();
+
+    const worldMove = new THREE.Vector3();
+    worldMove.addScaledVector(camRight, panX);
+    worldMove.addScaledVector(camForward, -panY);
+
+    if (worldMove.lengthSq() > 0) {
+        worldMove.normalize().multiplyScalar(velocidad * delta);
+        camera.position.add(worldMove);
+        cameraSmoothTarget.add(worldMove);
+    }
+}
+
 function chooseNewDynamicCameraTarget() {
     const otherMode = dynamicCameraMode === 'player' ? 'enemy' : 'player';
     let chosenMode = 'player';
