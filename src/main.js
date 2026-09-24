@@ -6454,6 +6454,13 @@ renderer.domElement.addEventListener('mouseup', (e) => {
             lanzarHabilidadApuntada();
             return;
         }
+
+        // M4.2: si estamos apuntando un área, lanzarla en la posición
+        // del círculo
+        if (aimingAreaAbility && aimingAreaPos) {
+            lanzarHabilidadArea();
+            return;
+        }
         const target = getEntityFromClick(e);
         
         if (target && !target.isDead) {
