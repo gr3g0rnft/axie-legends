@@ -1928,6 +1928,111 @@ function actualizarApuntadoArea(delta) {
     }
 }
 
+// --- M4.1: Lanzar la habilidad de área (W) ---
+function lanzarHabilidadArea() {
+    if (!aimingAreaAbility || !aimingAreaPos) return;
+    const hab = aimingAreaAbility;
+    const pos = aimingAreaPos.clone();
+
+    // Consumir maná y poner cooldown
+    playerMana -= hab.mana;
+    if (playerMana < 0) playerMana = 0;
+    cooldownsHabilidad[hab.id] = hab.cooldown;
+    updatePlayerHUD();
+    updateAbilityHUD();
+
+    const radio = hab.radio || 2.5;
+    const dano = hab.dano || 0;
+    let impactos = 0;
+
+    // Minions enemigos
+    for (const m of enemigos) {
+        if (m.isDead || !m.group) continue;
+        const d = pos.distanceTo(m.group.position);
+        if (d <= radio) {
+            m.health -= dano;
+            if (m.updateHealthBar) m.updateHealthBar();
+            if (m.flashHit) m.flashHit();
+            impactos++;
+            if (m.health <= 0 && m.die) m.die('player');
+        }
+    }
+
+    // Axie enemigo
+    if (typeof enemyAxieModel !== 'undefined' && enemyAxieModel && !enemyAxieIsDead) {
+        const d = pos.distanceTo(enemyAxieModel.position);
+        if (d <= radio) {
+            enemyAxieTakeDamage(dano);
+            impactos++;
+        }
+    }
+
+    // Torres enemigas
+    for (const tw of towers) {
+        if (tw.isDead || !tw.isEnemy) continue;
+        const d = pos.distanceTo(tw.position);
+        if (d <= radio) {
+            tw.health -= dano;
+            if (tw.updateHealthBar) tw.updateHealthBar();
+            impactos++;
+            if (tw.health <= 0 && tw.die) tw.die('player');
+        }
+    }
+
+    // Onda expansiva visual azul
+    const anillo = new THREE.Mesh(
+        new THREE.RingGeometry(radio * 0.3, radio, 48),
+        new THREE.MeshBasicMaterial({
+            color: INDICATOR_COLOR,
+            transparent: true,
+            opacity: 0.7,
+            side: THREE.DoubleSide,
+            depthTest: false,
+            depthWrite: false,
+            toneMapped: false
+        })
+    );
+    anillo.rotation.x = -Math.PI / 2;
+    anillo.position.copy(pos);
+    anillo.position.y = GROUND_Y + 0.06;
+    anillo.renderOrder = 1002;
+    scene.add(anillo);
+
+    // Guardar para animar
+    if (typeof ondasActivas === 'undefined') {
+        window.ondasActivas = [];
+    }
+    const lista = (typeof ondasActivas !== 'undefined') ? ondasActivas : window.ondasActivas;
+    lista.push({ mesh: anillo, t: 0, duracion: 0.5 });
+
+    // Sonido
+    if (typeof audio !== 'undefined') audio.play('shoot', { volume: 0.6 });
+
+    console.log('💥 Lanzada ' + hab.nombre + ' | Impactos: ' + impactos + ' | MP: ' + Math.floor(playerMana));
+
+    // Cancelar el apuntado (quita el círculo)
+    cancelarApuntadoArea();
+}
+
+// --- M4.1: animar ondas expansivas ---
+function updateOndasActivas(delta) {
+    if (typeof ondasActivas === 'undefined') return;
+    for (let i = ondasActivas.length - 1; i >= 0; i--) {
+        const o = ondasActivas[i];
+        o.t += delta;
+        const k = o.t / (o.duracion || 0.5);
+        if (k >= 1) {
+            scene.remove(o.mesh);
+            o.mesh.geometry.dispose();
+            o.mesh.material.dispose();
+            ondasActivas.splice(i, 1);
+        } else {
+            o.mesh.scale.setScalar(1 + k * 0.6);
+            o.mesh.material.opacity = 0.7 * (1 - k);
+        }
+    }
+}
+
 // --- Listener global de posición del ratón para edge panning ---
 // Necesario para saber dónde está el cursor en la pantalla.
 if (!window.__mousePos) {
@@ -7648,6 +7753,8 @@ function gameLoop(time, token) {
         actualizarApuntado(delta);
         // M2.4: actualizar apuntado de área (W)
         actualizarApuntadoArea(delta);
+        // M4.1: animar ondas expansivas de área
+        updateOndasActivas(delta);
         // M1.9b: edge panning (solo en modo jugador humano)
         updateEdgePanning(delta);
         // M1.9b: actualizar cámara con delta para respetar el modo
