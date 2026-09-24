@@ -1749,6 +1749,139 @@ function actualizarHighlightApuntado() {
     scene.add(aimHighlight);
 }
 
+// --- M2.4: iniciar apuntado de área ---
+function iniciarApuntadoArea(hab) {
+    if (!hab) return;
+    // Cancelar cualquier apuntado de Q que esté activo
+    if (aimingAbility) cancelarApuntado();
+    aimingAreaAbility = hab;
+    aimingAreaPos = playerModel ? playerModel.position.clone() : new THREE.Vector3(0, GROUND_Y, 0);
+    aimingAreaTimeout = AIMING_AREA_TIMEOUT_MAX;
+    console.log('🎯 Apuntando área: ' + hab.nombre + ' (radio ' + hab.radio + ', rango ' + hab.rango + ')');
+}
+
+// --- M2.4: cancelar apuntado de área ---
+function cancelarApuntadoArea() {
+    if (!aimingAreaAbility && !aimAreaIndicator) return;
+    if (aimingAreaAbility) {
+        console.log('❌ Apuntado área cancelado: ' + aimingAreaAbility.nombre);
+    }
+    aimingAreaAbility = null;
+    aimingAreaPos = null;
+    aimingAreaTimeout = 0;
+    if (aimAreaIndicator) {
+        scene.remove(aimAreaIndicator);
+        aimAreaIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        aimAreaIndicator = null;
+    }
+}
+
+// --- M2.4: crear el círculo visual azul ---
+function crearIndicadorArea(hab) {
+    if (aimAreaIndicator) {
+        scene.remove(aimAreaIndicator);
+        aimAreaIndicator.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+        });
+        aimAreaIndicator = null;
+    }
+    if (!hab) return;
+
+    aimAreaIndicator = new THREE.Group();
+    const radio = hab.radio || 2.5;
+
+    // Relleno translúcido
+    const fillGeo = new THREE.CircleGeometry(radio, 48);
+    const fillMat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 0.20,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    const fill = new THREE.Mesh(fillGeo, fillMat);
+    fill.rotation.x = -Math.PI / 2;
+    aimAreaIndicator.add(fill);
+
+    // Borde más visible
+    const gro = radio * 0.06;
+    const borderGeo = new THREE.RingGeometry(radio - gro, radio, 48);
+    const borderMat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    const border = new THREE.Mesh(borderGeo, borderMat);
+    border.rotation.x = -Math.PI / 2;
+    aimAreaIndicator.add(border);
+
+    aimAreaIndicator.renderOrder = 1001;
+    scene.add(aimAreaIndicator);
+}
+
+// --- M2.4: actualizar posición del círculo cada frame ---
+function actualizarApuntadoArea(delta) {
+    if (!aimingAreaAbility) return;
+    if (!renderer || !camera || !playerModel) return;
+
+    // Reducir el temporizador
+    aimingAreaTimeout -= delta;
+    if (aimingAreaTimeout <= 0) {
+        cancelarApuntadoArea();
+        return;
+    }
+
+    // Crear indicador la primera vez
+    if (!aimAreaIndicator) crearIndicadorArea(aimingAreaAbility);
+
+    // Calcular posición del ratón sobre el suelo
+    const m = window.__mousePos;
+    if (!m) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+        ((m.x - rect.left) / rect.width) * 2 - 1,
+        -((m.y - rect.top) / rect.height) * 2 + 1
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
+    const punto = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(plane, punto)) return;
+
+    // Limitar al rango desde el Axie
+    const origen = playerModel.position.clone();
+    origen.y = GROUND_Y;
+    const dx = punto.x - origen.x;
+    const dz = punto.z - origen.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    const rango = aimingAreaAbility.rango || 6.0;
+
+    if (dist > rango) {
+        const factor = rango / dist;
+        punto.x = origen.x + dx * factor;
+        punto.z = origen.z + dz * factor;
+    }
+
+    punto.y = GROUND_Y + 0.05;
+    aimingAreaPos = punto.clone();
+
+    // Mover el indicador
+    if (aimAreaIndicator) {
+        aimAreaIndicator.position.copy(punto);
+    }
+}
+
 // --- Listener global de posición del ratón para edge panning ---
 // Necesario para saber dónde está el cursor en la pantalla.
 if (!window.__mousePos) {
@@ -4455,6 +4588,12 @@ let aimingTarget = null;     // Enemigo bajo el cursor (null si ninguno)
 let aimingTimeout = 0;       // Temporizador de cancelación automática
 const AIMING_TIMEOUT_MAX = 5.0;
 let aimHighlight = null;     // Aro azul que resalta el objetivo apuntado
+// --- M2.4: Sistema de apuntado de habilidad de área (W) ---
+let aimingAreaAbility = null;   // Habilidad de área que estamos apuntando
+let aimingAreaPos = null;       // THREE.Vector3 con la posición del círculo
+let aimingAreaTimeout = 0;      // Temporizador de cancelación
+const AIMING_AREA_TIMEOUT_MAX = 5.0;
+let aimAreaIndicator = null;    // Grupo con el círculo visual
 let isMovingToTarget = false;
 let playerSpeed = CONFIG.axieSpeed;
 const playerSpawnPosition = new THREE.Vector3(0, 0, -20);
@@ -7404,6 +7543,8 @@ function gameLoop(time, token) {
         updateTargetIndicator(delta);
         // M2.3: actualizar apuntado (busca enemigo bajo el cursor)
         actualizarApuntado(delta);
+        // M2.4: actualizar apuntado de área (W)
+        actualizarApuntadoArea(delta);
         // M1.9b: edge panning (solo en modo jugador humano)
         updateEdgePanning(delta);
         // M1.9b: actualizar cámara con delta para respetar el modo
