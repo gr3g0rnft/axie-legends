@@ -1436,21 +1436,46 @@ function inicializarCamaraFija() {
     updateCameraHUD();
 }
 
-function updateCameraPosition() {
+function updateCameraPosition(delta) {
     if (!playerModel || !camaraInicializada) return;
+    if (typeof delta !== 'number') delta = 0.016;
+
+    // --- MODO FREE: la cámara NO sigue al jugador ---
+    // Se queda quieta en su posición actual. El jugador la moverá con 
+    // el ratón en los bordes (edge panning), que se implementa en M1.9.
+    if (cameraMode === 'free') {
+        camera.position.y = CAMERA_FIXED_Y;
+        camera.lookAt(cameraSmoothTarget);
+        camera.zoom = cameraZoom;
+        camera.updateProjectionMatrix();
+        return;
+    }
+
+    // --- MODOS LOCKED y SEMI: siguen al jugador ---
+    // En semi, la cámara está más alejada y más alta que en locked.
+    const distMul = (cameraMode === 'semi') ? 1.5 : 1.0;
+    const alturaMul = (cameraMode === 'semi') ? 1.4 : 1.0;
+
     const targetX = playerModel.position.x;
     const targetZ = playerModel.position.z;
-    const sf = 1 - Math.exp(-CONFIG.cameraSmoothSpeed * 0.016);
-    cameraSmoothPos.x = THREE.MathUtils.lerp(cameraSmoothPos.x, targetX + CAMERA_OFFSET.x, sf);
-    cameraSmoothPos.z = THREE.MathUtils.lerp(cameraSmoothPos.z, targetZ + CAMERA_OFFSET.z, sf);
-    cameraSmoothPos.y = CAMERA_FIXED_Y;
+
+    const offsetX = CAMERA_OFFSET.x * distMul;
+    const offsetZ = CAMERA_OFFSET.z * distMul;
+    const altura = CAMERA_OFFSET.y * alturaMul;
+
+    const sf = 1 - Math.exp(-CONFIG.cameraSmoothSpeed * delta * 60);
+    cameraSmoothPos.x = THREE.MathUtils.lerp(cameraSmoothPos.x, targetX + offsetX, sf);
+    cameraSmoothPos.z = THREE.MathUtils.lerp(cameraSmoothPos.z, targetZ + offsetZ, sf);
+    cameraSmoothPos.y = GROUND_Y + altura;
+
     cameraSmoothTarget.x = THREE.MathUtils.lerp(cameraSmoothTarget.x, targetX, sf);
     cameraSmoothTarget.z = THREE.MathUtils.lerp(cameraSmoothTarget.z, targetZ, sf);
-    cameraSmoothTarget.y = CAMERA_FIXED_TARGET_Y;
+    cameraSmoothTarget.y = GROUND_Y;
+
     camera.position.copy(cameraSmoothPos);
     camera.lookAt(cameraSmoothTarget);
-    camera.position.y = CAMERA_FIXED_Y;
-    camera.updateMatrixWorld(true);
+    camera.zoom = cameraZoom;
+    camera.updateProjectionMatrix();
 }
 
 function chooseNewDynamicCameraTarget() {
