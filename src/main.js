@@ -1392,6 +1392,22 @@ function inicializarCamaraFija() {
     camera.lookAt(cameraSmoothTarget);
     camera.updateProjectionMatrix();
     camaraInicializada = true;
+
+    // M1.3: Crear el HUD de la cámara (si no existe)
+    if (!cameraHUD) {
+        cameraHUD = document.createElement('div');
+        cameraHUD.id = 'camera-hud-lol';
+        cameraHUD.style.cssText = `
+            position: fixed; top: 100px; right: 12px; z-index: 3000;
+            padding: 6px 10px; border-radius: 8px;
+            background: rgba(0,0,0,0.6); color: #fff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 12px; border: 1px solid rgba(255,255,255,0.15);
+            pointer-events: none;
+        `;
+        document.body.appendChild(cameraHUD);
+    }
+    updateCameraHUD();
 }
 
 function updateCameraPosition() {
