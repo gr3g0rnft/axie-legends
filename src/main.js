@@ -6689,21 +6689,6 @@ window.addEventListener('wheel', (e) => {
     updateCameraHUD();
 }, { passive: false });
 
-// --- Flechas del teclado: mover cámara en modo free ---
-const cameraFreeKeys = { up: false, down: false, left: false, right: false };
-window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowUp') { cameraFreeKeys.up = true; e.preventDefault(); }
-    if (e.code === 'ArrowDown') { cameraFreeKeys.down = true; e.preventDefault(); }
-    if (e.code === 'ArrowLeft') { cameraFreeKeys.left = true; e.preventDefault(); }
-    if (e.code === 'ArrowRight') { cameraFreeKeys.right = true; e.preventDefault(); }
-});
-window.addEventListener('keyup', (e) => {
-    if (e.code === 'ArrowUp') cameraFreeKeys.up = false;
-    if (e.code === 'ArrowDown') cameraFreeKeys.down = false;
-    if (e.code === 'ArrowLeft') cameraFreeKeys.left = false;
-    if (e.code === 'ArrowRight') cameraFreeKeys.right = false;
-});
-
 // Tab se suelta: se esconde el marcador.
 document.addEventListener('keyup', (e) => {
     if (e.key === 'Tab') ocultarMarcador();
