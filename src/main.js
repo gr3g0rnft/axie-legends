@@ -3429,6 +3429,13 @@ class TowerProjectile {
 // ir con el arma, para que la animacion y el disparo coincidan.
 // ============================================================
 function dispararAtaqueJugador(target, origen, dmg) {
+    // M9.4: Aplicar crítico si corresponde
+    let esCritico = false;
+    if (playerCritChance > 0 && Math.random() < playerCritChance) {
+        dmg = Math.round(dmg * 2);
+        esCritico = true;
+    }
+
     // 1) Clip de ataque (Cannon.Attack / Sword.Attack), si el GLB lo trae
     if (animAttack) {
         animAttack.reset();
@@ -5405,6 +5412,11 @@ let attackSpeed = CONFIG.attackSpeed;
 let playerArmor = 0;        // defensa fisica (minions melee, Axie enemigo)
 let playerMagicResist = 0;  // defensa magica (proyectiles de los magos)
 
+// M9.4: Variables de bonus del Axie Core
+let playerCritChance = 0;        // 0..1 (probabilidad de crítico)
+let playerLifesteal = 0;         // 0..1 (vampirismo)
+let playerMagicDamageBonus = 0;  // multiplicador (0.06 = +6%)
+
 // Tipos de dano. Solo hay dos fuentes claramente distinguibles:
 // los proyectiles de los magos son dano magico; el resto es fisico.
 const DMG_PHYSICAL = 'physical';
@@ -5941,6 +5953,81 @@ function updateLevelHUD() {
     }
     // M8.9a: actualizar visibilidad del botón +
     updateAbilityPlusVisibility();
+}
+
+// M9.4: Aplica los bonus del Axie Core al jugador
+function aplicarBonusAxieAlJugador(axieId) {
+    const bonus = calcularBonusAxie(axieId);
+    if (!bonus) {
+        console.log('⚠️ No hay bonus para ' + axieId);
+        return;
+    }
+
+    // Aplicar cada bonus si existe
+    if (bonus.vida) {
+        playerMaxHealth = Math.round(playerMaxHealth * (1 + bonus.vida));
+        playerHealth = playerMaxHealth;
+    }
+    if (bonus.mana) {
+        playerMaxMana = Math.round(playerMaxMana * (1 + bonus.mana));
+        playerMana = playerMaxMana;
+    }
+    if (bonus.velocidad) {
+        playerSpeed *= (1 + bonus.velocidad);
+    }
+    if (bonus.dano) {
+        attackDamage = Math.round(attackDamage * (1 + bonus.dano));
+    }
+    if (bonus.velAtaque) {
+        attackSpeed /= (1 + bonus.velAtaque);
+    }
+    if (bonus.defensa) {
+        playerArmor += bonus.defensa * 100;
+    }
+    if (bonus.danoMagico) {
+        playerMagicDamageBonus = bonus.danoMagico;
+    }
+    if (bonus.critico) {
+        playerCritChance = bonus.critico;
+    }
+    if (bonus.vampirismo) {
+        playerLifesteal = bonus.vampirismo;
+    }
+
+    // Actualizar HUD
+    if (typeof updatePlayerHUD === 'function') updatePlayerHUD();
+
+    console.log('🎁 Bonus Axie Core aplicados a ' + axieId + ':', bonus);
+}
+
+// M9.4: Aplica los bonus del Axie Core al Axie enemigo
+function aplicarBonusAxieAlEnemigo(axieId) {
+    const bonus = calcularBonusAxie(axieId);
+    if (!bonus) return;
+
+    if (bonus.vida) {
+        enemyAxieMaxHealth = Math.round(enemyAxieMaxHealth * (1 + bonus.vida));
+        enemyAxieHealth = enemyAxieMaxHealth;
+    }
+    if (bonus.dano) {
+        // Se aplicará al daño del enemigo en cada ataque (multiplicador)
+        enemyAxieBonuses.damageMultiplier *= (1 + bonus.dano);
+    }
+    if (bonus.velocidad) {
+        enemyAxieBonuses.speedMultiplier *= (1 + bonus.velocidad);
+    }
+    if (bonus.velAtaque) {
+        enemyAxieBonuses.attackSpeedMultiplier *= (1 + bonus.velAtaque);
+    }
+    if (bonus.critico) {
+        enemyAxieBonuses.critChance += bonus.critico;
+    }
+    if (bonus.defensa) {
+        // Guardar la defensa como multiplicador de reducción
+        // (por simplicidad, no se aplica al enemigo por ahora)
+    }
+
+    console.log('🎁 Bonus Axie Core aplicados al enemigo ' + axieId + ':', bonus);
 }
 
 // ============================================================
@@ -6508,6 +6595,9 @@ function spawnEnemyAxie() {
     const allAxies = getAllAxies();
     const available = allAxies.filter(a => a.id !== selectedAxieId);
     const randomAxie = available[Math.floor(Math.random() * available.length)];
+    // M9.4: aplicar bonus del Axie Core al enemigo
+    // NOTA: se aplica en el momento de spawn
+    setTimeout(() => aplicarBonusAxieAlEnemigo(randomAxie.id), 100);
     enemyAxie = { id: randomAxie.id, nombre: randomAxie.nombre, data: randomAxie, health: enemyAxieHealth, maxHealth: enemyAxieMaxHealth, isDead: false };
     
     enemyAxieGold = 0;
@@ -8281,6 +8371,8 @@ async function startGame(axieId) {
     }
     actualizarPantallaCarga(60, 'Cargando Axie...');
     await loadSelectedAxie(axieId);
+    // M9.4: aplicar bonus del Axie Core al jugador
+    aplicarBonusAxieAlJugador(axieId);
     playerModel.position.copy(playerSpawnPosition);
     playerModel.position.y = GROUND_Y - 100;
     smoothPlayerPos.copy(playerSpawnPosition);
