@@ -5,6 +5,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { getAxieById, getAllAxies, getPerfilCombate } from './config/axies.js';
 import { getHabilidades, getHabilidad, setAxieActual, getHabilidadEnNivel } from './config/habilidades.js';
+import { calcularBonusAxie, getRazasInfo, getPartesAxie, RAZAS, CASILLAS, DESCRIPCIONES_BONUS } from './config/axie-core.js';
 import { audio } from './audio/AudioManager.js';
 import { initCombatSystem } from './systems/combat-controller.js';
 
@@ -5942,6 +5943,354 @@ function updateLevelHUD() {
     updateAbilityPlusVisibility();
 }
 
+// ============================================================
+// M8.13: HUD de AxieCore (nivel, EXP, maná, stats, pasivas)
+// ============================================================
+
+// Sistema de tooltips elegante para AxieCore
+function asegurarTooltipAxieCore() {
+    if (document.getElementById('axie-core-tooltip')) return;
+    const tip = document.createElement('div');
+    tip.id = 'axie-core-tooltip';
+    tip.style.cssText = `
+        position: fixed;
+        display: none;
+        z-index: 200;
+        max-width: 260px;
+        padding: 10px 12px;
+        background: linear-gradient(135deg, rgba(10,10,25,0.98), rgba(15,20,40,0.98));
+        border: 2px solid rgba(0,170,255,0.6);
+        border-radius: 8px;
+        color: #ddeeff;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 12px;
+        line-height: 1.5;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.8), 0 0 16px rgba(0,170,255,0.3);
+        pointer-events: none;
+        opacity: 1;
+    `;
+    document.body.appendChild(tip);
+}
+
+let _tooltipAxieCoreActual = null;   // Datos del tooltip activo
+let _tooltipAxieCoreTimer = null;    // Timer de ocultado
+
+function mostrarTooltipAxieCore(html, filaElemento) {
+    asegurarTooltipAxieCore();
+    const tip = document.getElementById('axie-core-tooltip');
+    if (!tip) return;
+
+    // Cancelar cualquier timer de cierre pendiente
+    if (_tooltipAxieCoreTimer) {
+        clearTimeout(_tooltipAxieCoreTimer);
+        _tooltipAxieCoreTimer = null;
+    }
+
+    // Rellenar contenido
+    tip.innerHTML = html;
+
+    // Hacer visible el tooltip para medir
+    tip.style.display = 'block';
+    tip.style.opacity = '1';
+
+    // Calcular posición: a la derecha del panel, SIEMPRE a la misma altura
+    const panel = document.getElementById('axie-core-hud');
+    let posX = 20;
+    let posY = 100;
+
+    if (panel) {
+        const panelRect = panel.getBoundingClientRect();
+        posX = panelRect.right + 12;
+        // IMPORTANTE: siempre alineado con el borde SUPERIOR del panel,
+        // NO con la fila. Así todos los tooltips salen a la misma altura.
+        posY = panelRect.top;
+    }
+
+    // Ajustar si se sale por la derecha
+    const tipRect = tip.getBoundingClientRect();
+    if (posX + tipRect.width > window.innerWidth - 10) {
+        // Poner a la izquierda del panel
+        if (panel) {
+            const panelRect = panel.getBoundingClientRect();
+            posX = panelRect.left - tipRect.width - 12;
+            if (posX < 10) posX = 10;
+        }
+    }
+
+    // Ajustar si se sale por abajo
+    if (posY + tipRect.height > window.innerHeight - 10) {
+        posY = window.innerHeight - tipRect.height - 10;
+    }
+    if (posY < 10) posY = 10;
+
+    tip.style.left = posX + 'px';
+    tip.style.top = posY + 'px';
+    tip.style.right = 'auto';
+    tip.style.bottom = 'auto';
+}
+
+function ocultarTooltipAxieCore() {
+    if (_tooltipAxieCoreTimer) clearTimeout(_tooltipAxieCoreTimer);
+    _tooltipAxieCoreTimer = setTimeout(() => {
+        const tip = document.getElementById('axie-core-tooltip');
+        if (!tip) return;
+        tip.style.opacity = '0';
+        setTimeout(() => {
+            if (tip.style.opacity === '0') tip.style.display = 'none';
+        }, 200);
+    }, 300);
+}
+
+function createAxieCoreHUD() {
+    const anterior = document.getElementById('axie-core-hud');
+    if (anterior) anterior.remove();
+
+    const hud = document.createElement('div');
+    hud.id = 'axie-core-hud';
+    hud.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 16px;
+        z-index: 100;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        color: #e0e8f0;
+        font-size: 13px;
+        user-select: none;
+    `;
+    hud.innerHTML = `
+        <div id="axie-core-toggle" style="
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(10,10,20,0.95), rgba(20,20,40,0.9));
+            border: 1px solid rgba(0,170,255,0.4);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            color: #00aaff;
+            text-shadow: 0 0 6px rgba(0,170,255,0.6);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+        ">
+            <span style="font-size: 14px;">🧬 AXIE CORE</span>
+            <span id="axie-core-arrow" style="font-size:12px;">▼</span>
+        </div>
+        <div id="axie-core-body" style="
+            display: none;
+            margin-top: 8px;
+            padding: 14px;
+            width: 280px;
+            background: linear-gradient(135deg, rgba(10,10,20,0.97), rgba(20,20,40,0.95));
+            border: 1px solid rgba(0,170,255,0.3);
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+        ">
+            <div id="axie-core-rows"></div>
+            <div id="axie-core-total" style="
+                margin-top: 12px;
+                padding-top: 10px;
+                border-top: 1px solid rgba(0,170,255,0.2);
+                font-size: 13px;
+                color: #aaccff;
+            "></div>
+        </div>
+    `;
+    document.body.appendChild(hud);
+
+    // Tracking global: si el ratón sale del panel AxieCore, ocultar tooltip
+    if (!hud.dataset.trackingBound) {
+        hud.dataset.trackingBound = '1';
+        hud.addEventListener('mouseleave', () => {
+            // Quitar el fondo de todas las filas
+            document.querySelectorAll('.axie-core-row, .axie-core-total-row').forEach((r) => {
+                r.style.background = 'transparent';
+            });
+            ocultarTooltipAxieCore();
+        });
+    }
+
+    return hud;
+}
+
+function updateAxieCoreHUD(axieId) {
+    const body = document.getElementById('axie-core-body');
+    const rows = document.getElementById('axie-core-rows');
+    const totalEl = document.getElementById('axie-core-total');
+    if (!body || !rows || !totalEl) return;
+
+    const partes = getPartesAxie(axieId);
+    const razas = getRazasInfo();
+    if (!partes || !razas) {
+        rows.innerHTML = '<div style="color:#888;font-size:12px;">Sin datos</div>';
+        totalEl.innerHTML = '';
+        return;
+    }
+
+    // Nombres de las casillas
+    const nombresCasilla = {
+        tipo:    'Tipo',
+        boca:    'Boca',
+        orejas:  'Orejas',
+        espalda: 'Espalda',
+        cola:    'Cola'
+    };
+
+    // Construir las 5 filas
+    let html = '';
+    for (const casilla of CASILLAS) {
+        const razaId = partes[casilla];
+        const raza = razas[razaId];
+        if (!raza) continue;
+
+        const esTipo = (casilla === 'tipo');
+        const valor = esTipo ? raza.raza : raza.parte;
+        const pct = (valor * 100).toFixed(1);
+        const nombreBonus = raza.bonus.charAt(0).toUpperCase() + raza.bonus.slice(1);
+
+        html += `
+            <div class="axie-core-row" data-casilla="${casilla}" data-raza="${razaId}" style="
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 8px 6px;
+                border-radius: 6px;
+                cursor: help;
+                transition: background 0.15s ease;
+            ">
+                <div style="
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 50%;
+                    background: ${raza.color}22;
+                    border: 2px solid ${raza.color};
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 22px;
+                    flex-shrink: 0;
+                    box-shadow: 0 0 8px ${raza.color}66;
+                ">${raza.emoji}</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; color: #88aacc; line-height: 1;">${nombresCasilla[casilla]}</div>
+                    <div style="font-size: 14px; color: ${raza.color}; font-weight: 600; line-height: 1.3;">${raza.nombre}</div>
+                </div>
+                <div style="font-size: 14px; color: #fff; font-weight: 700; white-space: nowrap;">+${pct}%</div>
+            </div>
+        `;
+    }
+    rows.innerHTML = html;
+
+    // Total acumulado
+    const bonusTotal = calcularBonusAxie(axieId);
+    let totalHtml = '<div style="font-weight:700;color:#aaccff;font-size:13px;margin-bottom:6px;">TOTAL:</div>';
+    let hayBonus = false;
+    for (const [tipo, valor] of Object.entries(bonusTotal)) {
+        if (valor === 0) continue;
+        hayBonus = true;
+        const pct = (valor * 100).toFixed(1);
+        const nombreTipo = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+        const descripcion = (typeof DESCRIPCIONES_BONUS !== 'undefined' && DESCRIPCIONES_BONUS[tipo]) 
+            ? DESCRIPCIONES_BONUS[tipo] 
+            : 'Sin descripción disponible.';
+        totalHtml += `
+            <div class="axie-core-total-row" data-bonus="${tipo}" data-desc="${descripcion}" style="
+                font-size:13px;
+                color:#ddeeff;
+                padding:3px 4px;
+                border-radius:4px;
+                cursor:help;
+                transition: background 0.15s ease;
+            ">• +${pct}% ${nombreTipo}</div>
+        `;
+    }
+    if (!hayBonus) totalHtml += '<div style="font-size:13px;color:#888;">Sin bonus</div>';
+    totalEl.innerHTML = totalHtml;
+
+    // Tooltips del TOTAL: solo mouseenter
+    document.querySelectorAll('.axie-core-total-row').forEach((row) => {
+        const tipo = row.dataset.bonus;
+        const desc = row.dataset.desc;
+        const nombreTipo = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+        row.addEventListener('mouseenter', () => {
+            // Limpiar fondo de todas las filas primero
+            document.querySelectorAll('.axie-core-row, .axie-core-total-row').forEach((r) => {
+                r.style.background = 'transparent';
+            });
+            row.style.background = 'rgba(0,170,255,0.15)';
+            const html = `
+                <div style="color:#00aaff;font-weight:bold;font-size:13px;margin-bottom:6px;">
+                    ${nombreTipo}
+                </div>
+                <div style="color:#ddeeff;font-size:12px;">
+                    ${desc}
+                </div>
+            `;
+            mostrarTooltipAxieCore(html, row);
+        });
+    });
+
+    // Tooltips: solo mouseenter, sin mouseleave (se gestiona globalmente)
+    document.querySelectorAll('.axie-core-row').forEach((row) => {
+        const razaId = row.dataset.raza;
+        const raza = razas[razaId];
+        if (!raza) return;
+
+        row.addEventListener('mouseenter', () => {
+            // Limpiar fondo de todas las filas primero
+            document.querySelectorAll('.axie-core-row, .axie-core-total-row').forEach((r) => {
+                r.style.background = 'transparent';
+            });
+            row.style.background = 'rgba(0,170,255,0.15)';
+            const esTipo = (row.dataset.casilla === 'tipo');
+            const valorRaza = (raza.raza * 100).toFixed(0);
+            const valorParte = (raza.parte * 100).toFixed(1);
+            const nombreBonus = raza.bonus.charAt(0).toUpperCase() + raza.bonus.slice(1);
+            const html = `
+                <div style="color:${raza.color};font-weight:bold;font-size:13px;margin-bottom:6px;">
+                    ${raza.emoji} ${raza.nombre}
+                </div>
+                <div style="color:#88aacc;font-size:11px;margin-bottom:8px;">
+                    Casilla: ${row.dataset.casilla.charAt(0).toUpperCase() + row.dataset.casilla.slice(1)}
+                </div>
+                <div style="color:#fff;margin-bottom:6px;">
+                    <b>Bonus actual:</b> +${(esTipo ? raza.raza : raza.parte) * 100}% ${nombreBonus}
+                </div>
+                <div style="color:#ddeeff;font-style:italic;font-size:11px;margin-bottom:8px;">
+                    "${raza.descripcion || 'Sin descripción.'}"
+                </div>
+                <div style="color:#88aacc;font-size:10px;border-top:1px solid rgba(0,170,255,0.2);padding-top:6px;">
+                    Como Tipo: <b style="color:#fff;">+${valorRaza}%</b><br>
+                    Como parte (Boca, Orejas, etc.): <b style="color:#fff;">+${valorParte}%</b>
+                </div>
+            `;
+            mostrarTooltipAxieCore(html, row);
+        });
+    });
+
+    // Configurar toggle colapsable (solo la primera vez)
+    const toggle = document.getElementById('axie-core-toggle');
+    const arrow = document.getElementById('axie-core-arrow');
+    if (toggle && !toggle.dataset.bound) {
+        toggle.dataset.bound = '1';
+        toggle.addEventListener('click', () => {
+            const estaAbierto = body.style.display !== 'none';
+            body.style.display = estaAbierto ? 'none' : 'block';
+            arrow.textContent = estaAbierto ? '▼' : '▲';
+        });
+        toggle.addEventListener('mouseenter', () => {
+            toggle.style.background = 'linear-gradient(135deg, rgba(0,170,255,0.15), rgba(20,20,40,0.95))';
+            toggle.style.borderColor = 'rgba(0,170,255,0.7)';
+        });
+        toggle.addEventListener('mouseleave', () => {
+            toggle.style.background = 'linear-gradient(135deg, rgba(10,10,20,0.95), rgba(20,20,40,0.9))';
+            toggle.style.borderColor = 'rgba(0,170,255,0.4)';
+        });
+    }
+}
+
 // M8.9a: controla si el botón + está visible según puntos disponibles
 function updateAbilityPlusVisibility() {
     // M8.9e: regla LoL usando puedeSubirHabilidad - un + por botón en la fila superior
@@ -7570,6 +7919,9 @@ function abandonGame() {
     const abilityWrapper = document.getElementById('ability-wrapper');
     if (abilityWrapper) { abilityWrapper.remove(); }
     if (abilityHUD) { abilityHUD.remove(); abilityHUD = null; }
+    // M8.13: ocultar AxieCore HUD
+    const axieCoreHUD = document.getElementById('axie-core-hud');
+    if (axieCoreHUD) { axieCoreHUD.style.display = 'none'; }
     enemyAxieDebugHUD.style.display = 'none';
     goldDiv.style.display = 'none';
     for (const m of aliados) if (m.group && m.group.parent) scene.remove(m.group);
@@ -7973,6 +8325,11 @@ async function startGame(axieId) {
     resetEnemyAxie();
     inicializarCamaraFija();
     if (!playerHUD) { createPlayerHUD(); updatePlayerHUD(); }
+    // M8.13: inicializar HUD de Axie Core (razas + casillas + bonus)
+    if (!document.getElementById('axie-core-hud')) createAxieCoreHUD();
+    const axieCoreHud = document.getElementById('axie-core-hud');
+    if (axieCoreHud) axieCoreHud.style.display = 'block';
+    updateAxieCoreHUD(selectedAxieId);
     updateItemHUD();
     updatePotionHUD();
     goldDiv.style.display = 'block';
@@ -9135,6 +9492,8 @@ window.subirHabilidad = subirHabilidad;
 window.puedeSubirHabilidad = puedeSubirHabilidad;
 // M8.9a: exponer control de visibilidad del botón +
 window.updateAbilityPlusVisibility = updateAbilityPlusVisibility;
+// M8.13: exponer AxieCore HUD
+window.updateAxieCoreHUD = updateAxieCoreHUD;
 
 import './js/hub-control.js';
 import './js/inject-memory.js';
