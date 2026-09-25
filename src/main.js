@@ -35,7 +35,7 @@ const CONFIG = {
     editorGridSize: 0.5,
     editorSnapEnabled: true,
     editorShowGrid: true,
-    SPAWN_DELAY: 15,
+    SPAWN_DELAY: 5,
     towerRange: 5,
     towerDamage: 20,
     towerFireRate: 1.5,
@@ -64,8 +64,8 @@ const CONFIG = {
     SHOP_INTERACTION_DISTANCE: 6.0,
     SHOP_AUTO_OPEN_DISTANCE: 2.5,
     SHOP_POTION_LIMIT: 10,
-    AXIE_SPAWN_TIME: 3.0,
-    MINION_SPAWN_TIME: 15.0,
+    AXIE_SPAWN_TIME: 0,
+    MINION_SPAWN_TIME: 30.0,
     SHOP_AUTO_OPEN_COOLDOWN: 1.5,
     // === CARRIL ===
     // El carril mide LANE_TARGET_WIDTH = 10 de ancho (=> +-5 desde el centro).
