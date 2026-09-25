@@ -5751,6 +5751,11 @@ function givePlayerExp(amount) {
         playerArmor += LEVEL_UP_GAIN.armor;
         playerExpNext = Math.round(100 + (playerLevel - 1) * 50);
         console.log('⭐ ¡SUBISTE A NIVEL ' + playerLevel + '!');
+        // M8.7: otorgar punto de habilidad al subir de nivel
+        if (typeof puntosHabilidadDisponibles !== 'undefined') {
+            puntosHabilidadDisponibles++;
+            console.log('➕ Punto de habilidad disponible: ' + puntosHabilidadDisponibles);
+        }
     }
     // M8.8-fix: actualizar el HUD de nivel/EXP SIEMPRE (no solo al subir)
     if (typeof updateLevelHUD === 'function') updateLevelHUD();
@@ -5764,6 +5769,29 @@ function givePlayerExp(amount) {
             setTimeout(() => scene.remove(flash), 400);
         }
     }
+}
+
+// M8.7: Comprobar si se puede subir una habilidad
+function puedeSubirHabilidad(id) {
+    if (typeof puntosHabilidadDisponibles === 'undefined') return false;
+    if (puntosHabilidadDisponibles <= 0) return false;
+    const nivelActual = nivelesHabilidad[id] ?? 0;
+    // M8.7: máximo nivel 5 por habilidad
+    return nivelActual < 5;
+}
+
+// M8.7: Subir nivel de habilidad
+function subirHabilidad(id) {
+    if (!puedeSubirHabilidad(id)) {
+        console.log('❌ No se puede subir habilidad ' + id);
+        return false;
+    }
+    puntosHabilidadDisponibles--;
+    nivelesHabilidad[id] = (nivelesHabilidad[id] ?? 0) + 1;
+    console.log('✅ Habilidad ' + id + ' subida a nivel ' + nivelesHabilidad[id] + '. Puntos restantes: ' + puntosHabilidadDisponibles);
+    // Actualizar HUD de habilidades si existe
+    if (typeof updateAbilityHUD === 'function') updateAbilityHUD();
+    return true;
 }
 
 // --- M8.2: Actualizar el texto de nivel y EXP en el HUD ---
@@ -7436,6 +7464,9 @@ function abandonGame() {
     enemyAxiePotionCooldown = 0;
     playerAIPotionCooldown = 0;
     enemyAxieRetreatCooldown = 0;
+    // M8.7: resetear habilidades al abandonar partida
+    nivelesHabilidad = { q: 0, w: 0, e: 0, r: 0 };
+    puntosHabilidadDisponibles = 0;
     resetEnemyAxie();
     stopGameLoop();
     if (timerDiv) timerDiv.style.display = 'none';
@@ -7755,6 +7786,10 @@ async function startGame(axieId) {
     playerRespawnTimer = 0;
     resetPlayerEconomy();
     playerDeathCount = 0;
+    // M8.7: resetear sistema de habilidades al iniciar partida
+    nivelesHabilidad = { q: 0, w: 0, e: 0, r: 0 };
+    puntosHabilidadDisponibles = 1;
+    console.log('➕ Punto inicial de habilidad disponible');
     playerSpeed = CONFIG.axieSpeed;
     attackDamage = CONFIG.attackDamage;
     attackRange = CONFIG.attackRange;
@@ -7906,6 +7941,13 @@ function usarHabilidad(id) {
     const hab = getHabilidad(id);
     if (!hab) return;
     if (!habilidadDisponible(hab)) return;
+
+    // M8.7: bloquear habilidades en nivel 0 (sin puntos)
+    const nivelActual = nivelesHabilidad[hab.tecla.toLowerCase()] ?? 0;
+    if (nivelActual <= 0) {
+        console.log('⛔ Habilidad bloqueada: ' + hab.nombre + ' (nivel 0)');
+        return;
+    }
 
     // Si ya estamos apuntando algo, cancelarlo primero
     if (aimingAbility) cancelarApuntado();
@@ -8922,6 +8964,9 @@ console.log('🔍 window.__debug listo: vista cenital + editor disponible');
 // --- EXPONER FUNCIONES DE CÁMARA LoL PARA DEPURACIÓN ---
 window.setCameraMode = setCameraMode;
 window.updateCameraHUD = updateCameraHUD;
+// M8.7: exponer subida de habilidades a debug
+window.subirHabilidad = subirHabilidad;
+window.puedeSubirHabilidad = puedeSubirHabilidad;
 
 import './js/hub-control.js';
 import './js/inject-memory.js';
