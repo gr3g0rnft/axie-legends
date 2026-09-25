@@ -1373,7 +1373,12 @@ function updateCameraHUD() {
 }
 
 function setCameraMode(mode) {
-    if (!['locked', 'semi', 'free'].includes(mode)) return;
+        // M-ajuste-camara: 'semi' bloqueada temporalmente hasta M-diagonal
+        if (mode === 'semi') {
+            console.log('⚠️ Modo semi bloqueado hasta el módulo M-diagonal');
+            return;
+        }
+        if (!['locked', 'semi', 'free'].includes(mode)) return;
     if (cameraMode === mode) return;
     
     // Guardar estado actual para la transición (por si más adelante 
@@ -8941,7 +8946,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'y' || e.key === 'Y') {
         if (!gameStarted || gameFinished || isAITrainingMode) return;
         if (gamePaused || shopOpen) return;
-        const modos = ['locked', 'semi', 'free'];
+        const modos = ['locked', 'free'];   // 'semi' bloqueada temporalmente
         const idx = modos.indexOf(cameraMode);
         const next = modos[(idx + 1) % modos.length];
         setCameraMode(next);
