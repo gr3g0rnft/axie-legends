@@ -1,0 +1,135 @@
+// =============================================
+// CATÁLOGO DE HABILIDADES POR AXIE (Q / W / E / R)
+// Estilo League of Legends:
+//   Q = habilidad dirigida (click en enemigo)
+//   W = habilidad de área (click en el suelo)
+//   E = habilidad pasiva (se activa sola)
+//   R = ultimate (varía por personaje)
+// =============================================
+
+export const HABILIDADES_POR_AXIE = {
+    bing: {
+        q: {
+            tecla: 'Q',
+            nombre: 'Plasma Blast',
+            icono: 'assets/habilidades/bing_q_plasma_blast.jpg',
+            color: '#0ff',
+            tipo: 'target',           // dirigida
+            mana: 30,
+            cooldown: 5.0,
+            rango: 8.0,               // alcance máximo
+            dano: 55
+        },
+        w: {
+            tecla: 'W',
+            nombre: 'Thruster Dash',
+            icono: 'assets/habilidades/bing_w_thruster_dash.jpg',
+            color: '#ff6600',
+            tipo: 'area',             // área en el suelo
+            mana: 25,
+            cooldown: 10.0,
+            rango: 6.0,               // alcance del área
+            radio: 2.5,               // radio del círculo
+            dano: 40,
+            efecto: 'dash'            // además de dañar, hace dash
+        },
+        e: {
+            tecla: 'E',
+            nombre: 'Overclock',
+            icono: 'assets/habilidades/bing_e_overclock.jpg',
+            color: '#7cc8ff',
+            tipo: 'pasiva',           // pasiva
+            bonus: {
+                atkSpeed: 0.10,       // +10% velocidad de ataque
+                dano: 0.05            // +5% daño
+            }
+        },
+        r: {
+            tecla: 'R',
+            nombre: 'Inferno Cannon',
+            icono: 'assets/habilidades/bing_r_inferno_cannon.jpg',
+            color: '#ff4400',
+            tipo: 'ultimate',
+            subtipo: 'target',        // la R es dirigida
+            mana: 100,
+            cooldown: 80.0,
+            rango: 12.0,
+            dano: 120
+        }
+    },
+    kotaro: {
+        q: {
+            tecla: 'Q',
+            nombre: 'Flash Slash',
+            icono: 'assets/habilidades/kotaro_q_flash_slash.jpg',
+            color: '#88ccff',
+            tipo: 'target',
+            mana: 35,
+            cooldown: 8.0,
+            rango: 4.5,
+            dano: 60
+        },
+        w: {
+            tecla: 'W',
+            nombre: 'Blade Guard',
+            icono: 'assets/habilidades/kotaro_w_blade_guard.jpg',
+            color: '#ffcc88',
+            tipo: 'area',
+            mana: 25,
+            cooldown: 14.0,
+            rango: 5.0,
+            radio: 2.0,
+            dano: 30,
+            efecto: 'stun'            // aturde
+        },
+        e: {
+            tecla: 'E',
+            nombre: 'Dance Thousand',
+            icono: 'assets/habilidades/kotaro_e_dance.jpg',
+            color: '#ff88cc',
+            tipo: 'pasiva',
+            bonus: {
+                dano: 0.08,           // +8% daño
+                critChance: 0.10      // +10% crítico
+            }
+        },
+        r: {
+            tecla: 'R',
+            nombre: 'Demon Execution',
+            icono: 'assets/habilidades/kotaro_r_demon_execution.jpg',
+            color: '#ff4444',
+            tipo: 'ultimate',
+            subtipo: 'target',
+            mana: 80,
+            cooldown: 80.0,
+            rango: 12.0,
+            dano: 200
+        }
+    }
+};
+
+export const ORDEN_HABILIDADES = ['q','w','e','r'];
+
+let axieActual = 'bing';
+
+export function setAxieActual(id){
+    axieActual = id;
+}
+
+export function getHabilidades(){
+    const set = HABILIDADES_POR_AXIE[axieActual] || HABILIDADES_POR_AXIE.bing;
+    return ORDEN_HABILIDADES.map(k => {
+        const h = set[k];
+        return h ? Object.assign({id:k}, h) : null;
+    }).filter(Boolean);
+}
+
+export function getHabilidad(id){
+    const set = HABILIDADES_POR_AXIE[axieActual] || HABILIDADES_POR_AXIE.bing;
+    const h = set[id];
+    return h ? Object.assign({id}, h) : null;
+}
+
+export function getHabilidadesSet(){ 
+    return HABILIDADES_POR_AXIE[axieActual] || HABILIDADES_POR_AXIE.bing; 
+}
