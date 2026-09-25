@@ -5137,8 +5137,8 @@ function getWaveComposition() {
 // Tope duro: nunca mas de BIG_MINION_MAX_ALIVE vivos por bando.
 function shouldSpawnBigMinion(team) {
     // team es el bando que lo RECIBE ('ally' o 'enemy').
-    // Sale cuando el bando RIVAL ha perdido sus 2 torres.
-    const rivalLost = team === 'ally' ? towersEnemyLost.enemy : towersEnemyLost.ally;
+    // Sale cuando el equipo ha DESTRUIDO las 2 torres del rival.
+    const rivalLost = team === 'ally' ? towersEnemyLost.ally : towersEnemyLost.enemy;
     if (rivalLost < TOWERS_TO_UNLOCK_BIG) return false;
     const alive = (team === 'ally' ? aliados : enemigos)
         .filter(m => !m.isDead && m.tipo === 'big').length;
@@ -5302,7 +5302,7 @@ function spawnWave() {
 
     console.log(`🌊 [t=${gameTime.toFixed(2)}s] Oleada ${waveNumber}: ${comp.melee} melee + ${comp.mage} mage por equipo (formación desde nexos)`);
     if (bigAlly || bigEnemy) {
-        console.log(`   ⭐ MINION GRANDE: aliado=${bigAlly ? 'SI' : 'no'} enemigo=${bigEnemy ? 'SI' : 'no'} (torres rivales caidas: aliado=${towersEnemyLost.enemy}, enemigo=${towersEnemyLost.ally})`);
+        console.log(`   ⭐ MINION GRANDE: aliado=${bigAlly ? 'SI' : 'no'} enemigo=${bigEnemy ? 'SI' : 'no'} (torres destruidas: aliado=${towersEnemyLost.ally}, enemigo=${towersEnemyLost.enemy})`);
     }
     // Sonido de nueva oleada
     audio.play('wave', { volume: 0.4 });
@@ -5722,7 +5722,7 @@ function createAbilityHUD(h) {
     if (!document.getElementById('pulsePlusStyle')) {
         const style = document.createElement('style');
         style.id = 'pulsePlusStyle';
-        style.textContent = '@keyframes pulsePlus {0% { opacity:0.8; box-shadow:0 0 0 0 rgba(255,255,0,0.7);} 70% { opacity:1; box-shadow:0 0 0 8px rgba(255,255,0,0);} 100% { opacity:0.8; box-shadow:0 0 0 0 rgba(255,255,0,0);}}';
+        style.textContent = '@keyframes pulsePlus {0% { opacity:0.8; box-shadow:0 0 0 0 rgba(255,255,0,0.7);} 70% { opacity:1; box-shadow:0 0 0 8px rgba(255,255,0,0);} 100% { opacity:0.8; box-shadow:0 0 0 0 rgba(255,255,0,0);}}@keyframes abilityLevelUp {0% { transform: scale(1); } 30% { transform: scale(1.15); } 60% { transform: scale(0.95); } 100% { transform: scale(1); }}@keyframes abilityGlow {0% { box-shadow:0 0 0 0 rgba(255,255,0,0.7);} 50% { box-shadow:0 0 12px 4px rgba(255,255,0,0.9);} 100% { box-shadow:0 0 0 0 rgba(255,255,0,0.7);}}';
         document.head.appendChild(style);
     }
 
@@ -5889,6 +5889,15 @@ function subirHabilidad(id) {
     puntosHabilidadDisponibles--;
     nivelesHabilidad[id] = (nivelesHabilidad[id] ?? 0) + 1;
     console.log('✅ Habilidad ' + id + ' subida a nivel ' + nivelesHabilidad[id] + '. Puntos restantes: ' + puntosHabilidadDisponibles);
+    // M8.11 FIX 1: Animación bounce del botón + tras subir habilidad
+    const plusRow = document.getElementById('ability-plus-row');
+    if (plusRow) {
+        const btn = plusRow.querySelector(`.ability-plus-row-btn[data-ability-id="${id}"]`);
+        if (btn) {
+            btn.style.animation = 'abilityLevelUp 0.4s ease';
+            setTimeout(() => { btn.style.animation = ''; }, 400);
+        }
+    }
     // Actualizar HUD de habilidades si existe
     if (typeof updateAbilityHUD === 'function') updateAbilityHUD();
     // M8.9a: actualizar visibilidad del botón +
@@ -5941,6 +5950,14 @@ function updateAbilityPlusVisibility() {
         const habId = plusBtn.dataset.abilityId;
         const check = puedeSubirHabilidad(habId);
         plusBtn.style.visibility = check.ok ? 'visible' : 'hidden';
+        // M8.11 FIX 2: borde brillante cuando puede subir
+        if (check.ok) {
+            plusBtn.style.border = '2px solid #ff0';
+            plusBtn.style.animation = 'abilityGlow 1.2s ease-in-out infinite';
+        } else {
+            plusBtn.style.border = '2px solid #fff8cc';
+            plusBtn.style.animation = '';
+        }
     }
 }
 
