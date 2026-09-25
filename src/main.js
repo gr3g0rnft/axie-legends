@@ -7851,8 +7851,10 @@ function teletransporteAlNexo() {
 
 // Recarga restante por habilidad, en segundos.
 const cooldownsHabilidad = {};
-// M8.8: Niveles actuales de cada habilidad (por ahora todos a 1)
-const nivelesHabilidad = { q: 1, w: 1, e: 1, r: 1 };
+// M8.8: Niveles actuales de cada habilidad (empezamos en 0, suben al gastar puntos)
+let nivelesHabilidad = { q: 0, w: 0, e: 0, r: 0 };
+// Puntos de habilidad disponibles para gastar al subir de nivel
+let puntosHabilidadDisponibles = 0;
 // Tabla tecla -> id de habilidad, construida desde el catalogo. Asi reasignar
 // una tecla es cambiar 'tecla' en el catalogo y nada mas.
 const HABILIDADES_POR_TECLA = {};
