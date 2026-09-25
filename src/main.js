@@ -2608,8 +2608,10 @@ function dispararRafagaChannel() {
     // Sonido por ráfaga (suave)
     if (typeof audio !== 'undefined') audio.play('shoot', { volume: 0.3 });
 
-    const numRafaga = channelAbility.rafagas - channelRafagasRestantes + 1;
-    console.log('💥 Ráfaga ' + numRafaga + '/' + channelAbility.rafagas + ' | Impactos: ' + impactos);
+    // M8.11-fix: usar los valores del nivel actual para el log
+    const rafagasTotales = (vHab && vHab.rafagas) ? vHab.rafagas : 8;
+    const numRafaga = rafagasTotales - channelRafagasRestantes + 1;
+    console.log('💥 Ráfaga ' + numRafaga + '/' + rafagasTotales + ' | Impactos: ' + impactos);
 }
 
 // --- M4.1: animar ondas expansivas ---
