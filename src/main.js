@@ -1755,6 +1755,61 @@ function actualizarApuntado(delta) {
     }
 }
 
+// --- M7.4: actualizar el auto-approach de la Q ---
+function actualizarAutoApproachQ(delta) {
+    if (!autoApproachQ || !autoApproachQTarget) return;
+    if (!playerModel || !aimingAbility) {
+        autoApproachQ = false;
+        autoApproachQTarget = null;
+        return;
+    }
+
+    const target = autoApproachQTarget;
+    const obj = target.group || target.ref?.group || target;
+    if (!obj || !obj.position || target.isDead) {
+        console.log('❌ Auto-approach cancelado: enemigo muerto o inválido');
+        autoApproachQ = false;
+        autoApproachQTarget = null;
+        cancelarApuntado();
+        return;
+    }
+
+    // Si el jugador se ha movido manualmente (isMovingToTarget pasó a false)
+    if (!isMovingToTarget && !isAutoMovingToTarget) {
+        autoApproachQ = false;
+        autoApproachQTarget = null;
+        cancelarApuntado();
+        return;
+    }
+
+    const dx = obj.position.x - playerModel.position.x;
+    const dz = obj.position.z - playerModel.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    const rango = aimingAbility.rango || 8.0;
+
+    if (dist <= rango) {
+        // En rango: lanzar la Q automáticamente
+        console.log('✅ En rango: lanzando Q automáticamente');
+        isMovingToTarget = false;
+        isAutoMovingToTarget = false;
+        autoApproachQ = false;
+        autoApproachQTarget = null;
+        aimingTarget = target;
+        lanzarHabilidadApuntada();
+        return;
+    }
+
+    // Recalcular posición objetivo cada frame (por si el enemigo se mueve)
+    const stopDist = Math.max(0.5, rango - 0.5);
+    const ratio = stopDist / dist;
+    const targetX = playerModel.position.x + dx * ratio;
+    const targetZ = playerModel.position.z + dz * ratio;
+    targetPosition = new THREE.Vector3(targetX, GROUND_Y, targetZ);
+    smoothTargetPos.copy(targetPosition);
+    isMovingToTarget = true;
+    isAutoMovingToTarget = true;
+}
+
 // --- M2.3: aro azul de resaltado del objetivo apuntado ---
 function actualizarHighlightApuntado() {
     if (aimHighlight) {
@@ -1834,8 +1889,18 @@ function lanzarHabilidadApuntada() {
         const dist = Math.sqrt(dx * dx + dz * dz);
         const rango = hab.rango || 8.0;
         if (dist > rango) {
-            console.log('⛔ Objetivo fuera de rango (' + dist.toFixed(1) + ' > ' + rango + ')');
-            // NO cancelamos el apuntado: el jugador puede seguir apuntando
+            // M7.4: auto-approach en vez de solo avisar
+            console.log('🚶 Auto-approach: caminando hacia el enemigo (' + dist.toFixed(1) + ' > ' + rango + ')');
+            autoApproachQ = true;
+            autoApproachQTarget = target;
+            const stopDist = Math.max(0.5, rango - 0.5);
+            const ratio = stopDist / dist;
+            const targetX = playerModel.position.x + dx * ratio;
+            const targetZ = playerModel.position.z + dz * ratio;
+            targetPosition = new THREE.Vector3(targetX, GROUND_Y, targetZ);
+            smoothTargetPos.copy(targetPosition);
+            isMovingToTarget = true;
+            isAutoMovingToTarget = true;
             return;
         }
     }
@@ -2140,6 +2205,11 @@ function iniciarChannel(hab, direccionInicial) {
     // Crear cono visual
     crearConoChannel(hab);
     
+    // M7.8: rotar el cono hacia la dirección inicial fija
+    if (channelIndicator && direccionInicial) {
+        channelIndicator.rotation.y = Math.atan2(direccionInicial.x, direccionInicial.z);
+    }
+    
     // M6.3b: bloquear el movimiento del Axie durante la canalizada
     isMovingToTarget = false;
     targetPosition = null;
@@ -2381,7 +2451,8 @@ function actualizarChannel(delta) {
             GROUND_Y + 0.06,
             playerModel.position.z
         );
-        channelIndicator.rotation.y = playerModel.rotation.y;
+        // M7.8: NO actualizar rotation.y aquí. El cono mantiene la 
+        // dirección fija que se configuró en iniciarChannel.
     }
 
     // Disparar ráfagas
@@ -5217,6 +5288,9 @@ let targetIndicator = null;
 // --- M2.3: Sistema de apuntado de habilidad dirigida (Q) ---
 let aimingAbility = null;    // Habilidad que estamos apuntando (null si no)
 let aimingTarget = null;     // Enemigo bajo el cursor (null si ninguno)
+// --- M7.4: Auto-approach de la Q ---
+let autoApproachQ = false;
+let autoApproachQTarget = null;
 let aimingTimeout = 0;       // Temporizador de cancelación automática
 const AIMING_TIMEOUT_MAX = 5.0;
 let aimHighlight = null;     // Aro azul que resalta el objetivo apuntado
@@ -6950,6 +7024,33 @@ renderer.domElement.addEventListener('mouseup', (e) => {
         // M3.2: si estamos apuntando una habilidad y hay un objetivo 
         // bajo el cursor, lanzarla al hacer click izquierdo
         if (aimingAbility && aimingTarget) {
+            // M7.7: verificar el rango EN EL MOMENTO del click (no confiar 
+            // en el aimingTarget que puede estar desactualizado por race 
+            // condition)
+            const objClick = aimingTarget.group || aimingTarget.ref?.group || aimingTarget;
+            if (objClick && objClick.position && playerModel) {
+                const dxC = objClick.position.x - playerModel.position.x;
+                const dzC = objClick.position.z - playerModel.position.z;
+                const distC = Math.sqrt(dxC * dxC + dzC * dzC);
+                const rangoC = aimingAbility.rango || 8.0;
+                console.log('🔍 Click Q: dist=' + distC.toFixed(2) + ' rango=' + rangoC + ' (dentro=' + (distC <= rangoC) + ')');
+                if (distC > rangoC) {
+                    // Fuera de rango: activar auto-approach
+                    console.log('🚶 Click fuera de rango → auto-approach');
+                    autoApproachQ = true;
+                    autoApproachQTarget = aimingTarget;
+                    const stopDist = Math.max(0.5, rangoC - 0.5);
+                    const ratio = stopDist / distC;
+                    const tx = playerModel.position.x + dxC * ratio;
+                    const tz = playerModel.position.z + dzC * ratio;
+                    targetPosition = new THREE.Vector3(tx, GROUND_Y, tz);
+                    smoothTargetPos.copy(targetPosition);
+                    isMovingToTarget = true;
+                    isAutoMovingToTarget = true;
+                    return;
+                }
+            }
+            // Dentro de rango: lanzar normal
             lanzarHabilidadApuntada();
             return;
         }
@@ -6965,11 +7066,9 @@ renderer.domElement.addEventListener('mouseup', (e) => {
             const hab = aimingChannelAbility;
             const dir = aimingChannelDir.clone();
             cancelarApuntadoChannel();
-            // M6.3d: el Axie mira hacia donde apunta el cono. Como el modelo
-            // de Bing mira hacia +Z cuando rotation.y = 0, y la dirección "dir"
-            // es la del ratón, hay que sumar PI para que mire AL ratón en vez
-            // de al lado contrario.
-            playerModel.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+            // M6.3d: el Axie mira hacia donde apunta el cono.
+            // M7.8: QUITAR + Math.PI (era un bug: hacía girar 180°)
+            playerModel.rotation.y = Math.atan2(dir.x, dir.z);
             iniciarChannel(hab, dir);
             return;
         }
@@ -7012,6 +7111,10 @@ renderer.domElement.addEventListener('mouseup', (e) => {
         isMouseDownRight = false;
         // M3.4: si estamos apuntando, cancelar
         if (aimingAbility) {
+            if (autoApproachQ) {
+                autoApproachQ = false;
+                autoApproachQTarget = null;
+            }
             cancelarApuntado();
             return;
         }
@@ -7956,6 +8059,10 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         // M3.4: si estamos apuntando, cancelar
         if (aimingAbility) {
+            if (autoApproachQ) {
+                autoApproachQ = false;
+                autoApproachQTarget = null;
+            }
             cancelarApuntado();
             return;
         }
@@ -8375,6 +8482,8 @@ function gameLoop(time, token) {
         updateTargetIndicator(delta);
         // M2.3: actualizar apuntado (busca enemigo bajo el cursor)
         actualizarApuntado(delta);
+        // M7.4: actualizar auto-approach de la Q
+        actualizarAutoApproachQ(delta);
         // M2.4: actualizar apuntado de área (W)
         actualizarApuntadoArea(delta);
         // M4.1: animar ondas expansivas de área
