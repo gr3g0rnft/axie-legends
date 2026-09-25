@@ -86,6 +86,7 @@ export class MenuScreen {
             width: 100%;
             height: 100%;
             background: url('${baseUrl}assets/fondos/fondo-inicio.jpg') center/cover no-repeat;
+            filter: brightness(1.15) contrast(1.05) saturate(1.1);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -105,7 +106,8 @@ export class MenuScreen {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.45);
+            background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.35) 100%);
+            backdrop-filter: brightness(1.05);
             z-index: 1;
         `;
         this.container.appendChild(overlay);
@@ -149,11 +151,12 @@ export class MenuScreen {
 
         const subtitle = document.createElement('div');
         subtitle.style.cssText = `
-            font-size: 15px;
-            letter-spacing: 3px;
-            color: #88ddff;
-            margin-top: 4px;
+            font-size: 16px;
+            letter-spacing: 4px;
+            color: #e8f9ff;
+            margin-top: 6px;
             text-align: center;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.55), 0 0 18px rgba(136,221,255,0.35);
         `;
         subtitle.textContent = '¡Bienvenido a Axie Legends!';
         content.appendChild(subtitle);
@@ -753,29 +756,30 @@ export class MenuScreen {
             `;
         } else {
             btn.style.cssText = `
-                padding: 14px 60px;
-                font-size: 20px;
-                font-weight: bold;
+                padding: 16px 68px;
+                font-size: 22px;
+                font-weight: 900;
                 background: linear-gradient(135deg, ${color}, ${color}dd);
-                color: #06220f;
-                border: 2px solid ${color};
-                border-radius: 12px;
+                color: #031a0e;
+                border: 2.5px solid ${color};
+                border-radius: 14px;
                 cursor: pointer;
-                transition: all 0.3s ease;
-                box-shadow: 0 0 20px ${color}33;
+                transition: all 0.25s ease;
+                box-shadow: 0 0 28px ${color}44, inset 0 0 12px rgba(255,255,255,0.25);
                 font-family: 'Segoe UI', Arial, sans-serif;
-                min-width: 240px;
+                min-width: 260px;
+                letter-spacing: 1px;
             `;
         }
 
         if (!isDisabled) {
             btn.onmouseenter = () => {
-                btn.style.transform = 'scale(1.05)';
-                btn.style.boxShadow = `0 0 40px ${color}55`;
+                btn.style.transform = 'scale(1.06)';
+                btn.style.boxShadow = `0 0 50px ${color}77, inset 0 0 14px rgba(255,255,255,0.35)`;
             };
             btn.onmouseleave = () => {
                 btn.style.transform = 'scale(1)';
-                btn.style.boxShadow = `0 0 20px ${color}33`;
+                btn.style.boxShadow = `0 0 28px ${color}44, inset 0 0 12px rgba(255,255,255,0.25)`;
             };
         }
 
