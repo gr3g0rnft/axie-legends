@@ -1637,7 +1637,7 @@ function iniciarApuntado(hab) {
     aimingAbility = hab;
     aimingTarget = null;
     aimingTimeout = AIMING_TIMEOUT_MAX;
-    console.log('🎯 Apuntando: ' + hab.nombre + ' (click izq en enemigo para lanzar, ESC para cancelar)');
+    console.log('🎯 Apuntando: ' + hab.nombre + ' (Nv. ' + (nivelesHabilidad[hab.id] || 1) + ') — click izq en enemigo para lanzar, ESC para cancelar');
 }
 
 // --- M2.3: cancelar apuntado ---
@@ -1734,7 +1734,9 @@ function actualizarApuntado(delta) {
                 const dx = obj.position.x - playerModel.position.x;
                 const dz = obj.position.z - playerModel.position.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
-                const rango = aimingAbility.rango || 8.0;
+                // M8.8: leer el rango del nivel actual
+                const vHabQ = valoresHabilidadActual(aimingAbility.id);
+                const rango = vHabQ ? (vHabQ.rango || 8.0) : 8.0;
                 if (dist <= rango) {
                     nuevoTarget = posibleTarget;
                 } else {
@@ -1796,7 +1798,9 @@ function actualizarAutoApproachQ(delta) {
     const dx = obj.position.x - playerModel.position.x;
     const dz = obj.position.z - playerModel.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    const rango = aimingAbility.rango || 8.0;
+    // M8.8: leer el rango del nivel actual
+    const vHabAA = valoresHabilidadActual(aimingAbility.id);
+    const rango = vHabAA ? (vHabAA.rango || 8.0) : 8.0;
 
     if (dist <= rango) {
         // En rango: lanzar la Q automáticamente
@@ -1898,7 +1902,9 @@ function lanzarHabilidadApuntada() {
         const dx = objVerif.position.x - playerModel.position.x;
         const dz = objVerif.position.z - playerModel.position.z;
         const dist = Math.sqrt(dx * dx + dz * dz);
-        const rango = hab.rango || 8.0;
+        // M8.8: leer el rango del nivel actual
+        const vHabL = valoresHabilidadActual(hab.id);
+        const rango = vHabL ? (vHabL.rango || 8.0) : 8.0;
         if (dist > rango) {
             // M7.4: auto-approach en vez de solo avisar
             console.log('🚶 Auto-approach: caminando hacia el enemigo (' + dist.toFixed(1) + ' > ' + rango + ')');
@@ -1916,10 +1922,16 @@ function lanzarHabilidadApuntada() {
         }
     }
 
+    // M8.8: usar valores del nivel actual
+    const vHab = valoresHabilidadActual(hab.id);
+    const manaHab = vHab ? vHab.mana : 0;
+    const cdHab = vHab ? vHab.cooldown : 5;
+    const danoHab = vHab ? vHab.dano : 50;
+
     // Consumir maná y poner cooldown
-    playerMana -= hab.mana;
+    playerMana -= manaHab;
     if (playerMana < 0) playerMana = 0;
-    cooldownsHabilidad[hab.id] = hab.cooldown;
+    cooldownsHabilidad[hab.id] = cdHab;
     updatePlayerHUD();
     updateAbilityHUD();
 
@@ -1938,13 +1950,13 @@ function lanzarHabilidadApuntada() {
     const proj = new PlayerProjectile(
         origen,
         { group: obj, isDead: false, type: 'minion', ref: target },
-        hab.dano,
+        danoHab,
         proyectilDelPerfil()
     );
     playerProjectiles.push(proj);
 
     // Feedback en consola + sonido
-    console.log('💥 Lanzada ' + hab.nombre + ' al objetivo | Daño: ' + hab.dano + ' | MP: ' + Math.floor(playerMana));
+    console.log('💥 Lanzada ' + hab.nombre + ' (Nv. ' + (nivelesHabilidad[hab.id] || 1) + ') | Daño: ' + danoHab + ' | MP: ' + Math.floor(playerMana));
     audio.play('shoot', { volume: 0.6 });
 
     // Sonido de impacto a los 300ms
@@ -1964,7 +1976,8 @@ function iniciarApuntadoArea(hab) {
     aimingAreaAbility = hab;
     aimingAreaPos = playerModel ? playerModel.position.clone() : new THREE.Vector3(0, GROUND_Y, 0);
     aimingAreaTimeout = AIMING_AREA_TIMEOUT_MAX;
-    console.log('🎯 Apuntando área: ' + hab.nombre + ' (radio ' + hab.radio + ', rango ' + hab.rango + ')');
+    const vHabI = valoresHabilidadActual(hab.id);
+    console.log('🎯 Apuntando área: ' + hab.nombre + ' (Nv. ' + (nivelesHabilidad[hab.id] || 1) + ', radio ' + (vHabI ? vHabI.radio : '?') + ', rango ' + (vHabI ? vHabI.rango : '?') + ')');
 }
 
 // --- M2.4: cancelar apuntado de área ---
@@ -1999,7 +2012,9 @@ function crearIndicadorArea(hab) {
     if (!hab) return;
 
     aimAreaIndicator = new THREE.Group();
-    const radio = hab.radio || 2.5;
+    // M8.8: leer el radio del nivel actual
+    const vHab = valoresHabilidadActual(hab.id);
+    const radio = vHab ? (vHab.radio || 2.5) : 2.5;
 
     // Relleno translúcido
     const fillGeo = new THREE.CircleGeometry(radio, 48);
@@ -2072,7 +2087,9 @@ function actualizarApuntadoArea(delta) {
     const dx = punto.x - origen.x;
     const dz = punto.z - origen.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    const rango = aimingAreaAbility.rango || 6.0;
+    // M8.8: leer el rango del nivel actual
+    const vHabA = valoresHabilidadActual(aimingAreaAbility.id);
+    const rango = vHabA ? (vHabA.rango || 6.0) : 6.0;
 
     if (dist > rango) {
         const factor = rango / dist;
@@ -2095,15 +2112,19 @@ function lanzarHabilidadArea() {
     const hab = aimingAreaAbility;
     const pos = aimingAreaPos.clone();
 
+    // M8.8: usar valores del nivel actual
+    const vHab = valoresHabilidadActual(hab.id);
+    const manaHab = vHab ? vHab.mana : 0;
+    const cdHab = vHab ? vHab.cooldown : 10;
+    const radio = vHab ? (vHab.radio || 2.5) : 2.5;
+    const dano = vHab ? (vHab.dano || 0) : 0;
+
     // Consumir maná y poner cooldown
-    playerMana -= hab.mana;
+    playerMana -= manaHab;
     if (playerMana < 0) playerMana = 0;
-    cooldownsHabilidad[hab.id] = hab.cooldown;
+    cooldownsHabilidad[hab.id] = cdHab;
     updatePlayerHUD();
     updateAbilityHUD();
-
-    const radio = hab.radio || 2.5;
-    const dano = hab.dano || 0;
     let impactos = 0;
 
     // Minions enemigos
@@ -2169,7 +2190,7 @@ function lanzarHabilidadArea() {
     // Sonido
     if (typeof audio !== 'undefined') audio.play('shoot', { volume: 0.6 });
 
-    console.log('💥 Lanzada ' + hab.nombre + ' | Impactos: ' + impactos + ' | MP: ' + Math.floor(playerMana));
+    console.log('💥 Lanzada ' + hab.nombre + ' (Nv. ' + (nivelesHabilidad[hab.id] || 1) + ') | Impactos: ' + impactos + ' | MP: ' + Math.floor(playerMana));
 
     // Cancelar el apuntado (quita el círculo)
     cancelarApuntadoArea();
@@ -2180,24 +2201,31 @@ function iniciarChannel(hab, direccionInicial) {
     if (!hab) return;
     if (channelAbility) cancelarChannel();
 
+    // M8.8: usar valores del nivel actual
+    const vHab = valoresHabilidadActual(hab.id);
+    const manaHab = vHab ? vHab.mana : 100;
+    const cdHab = vHab ? vHab.cooldown : 80;
+    const duracionHab = vHab ? (vHab.duracion || 2.0) : 2.0;
+    const rafagasHab = vHab ? (vHab.rafagas || 8) : 8;
+
     // Verificar maná
-    if (playerMana < hab.mana) {
+    if (playerMana < manaHab) {
         console.log('⛔ Mana insuficiente para ' + hab.nombre);
         return;
     }
 
     // Consumir maná y poner cooldown
-    playerMana -= hab.mana;
+    playerMana -= manaHab;
     if (playerMana < 0) playerMana = 0;
-    cooldownsHabilidad[hab.id] = hab.cooldown;
+    cooldownsHabilidad[hab.id] = cdHab;
     updatePlayerHUD();
     updateAbilityHUD();
 
     // Configurar estado
     channelAbility = hab;
     channelTimer = 0;
-    channelDuration = hab.duracion || 2.0;
-    channelRafagasRestantes = hab.rafagas || 8;
+    channelDuration = duracionHab;
+    channelRafagasRestantes = rafagasHab;
     channelIntervaloRafaga = channelDuration / channelRafagasRestantes;
     channelCooldownRafaga = 0;
     channelStartPos.copy(playerModel.position);
@@ -2261,8 +2289,10 @@ function crearConoChannel(hab) {
         channelIndicator = null;
     }
 
-    const rango = (hab.rango || 8.0) * 0.5;
-    const angulo = (hab.angulo || 60) * Math.PI / 180;
+    // M8.8: usar valores del nivel actual
+    const vHab = valoresHabilidadActual(hab.id);
+    const rango = (vHab ? (vHab.rango || 8.0) : 8.0) * 0.5;
+    const angulo = (vHab ? (vHab.angulo || 60) : 60) * Math.PI / 180;
 
     // Crear el cono con ShapeGeometry: un triángulo con la punta en el 
     // origen y la base hacia +Z. Se genera en el plano XY y luego se 
@@ -2320,8 +2350,10 @@ function crearIndicadorApuntadoChannel(hab) {
     }
     if (!hab) return;
 
-    const rango = (hab.rango || 8.0) * 0.5;
-    const angulo = (hab.angulo || 60) * Math.PI / 180;
+    // M8.8: usar valores del nivel actual
+    const vHab = valoresHabilidadActual(hab.id);
+    const rango = (vHab ? (vHab.rango || 8.0) : 8.0) * 0.5;
+    const angulo = (vHab ? (vHab.angulo || 60) : 60) * Math.PI / 180;
 
     const shape = new THREE.Shape();
     shape.moveTo(0, 0);
@@ -2484,9 +2516,11 @@ function actualizarChannel(delta) {
 function dispararRafagaChannel() {
     if (!channelAbility || !playerModel) return;
     const hab = channelAbility;
-    const rango = hab.rango || 8.0;
-    const anguloMedio = (hab.angulo || 60) / 2 * Math.PI / 180;
-    const dano = hab.danoPorRafaga || 15;
+    // M8.8: usar valores del nivel actual
+    const vHab = valoresHabilidadActual(hab.id);
+    const rango = vHab ? (vHab.rango || 8.0) : 8.0;
+    const anguloMedio = (vHab ? (vHab.angulo || 60) : 60) / 2 * Math.PI / 180;
+    const dano = vHab ? (vHab.danoPorRafaga || 15) : 15;
 
     // Dirección fijada al iniciar la canalizada
     const dirX = channelDireccion.x;
@@ -3372,6 +3406,8 @@ class TowerProjectile {
             }
             if (targetDied && !this.isEnemy && !isAITrainingMode && reward > 0) {
                 givePlayerGold(reward, `🗼 Torre aliada (asistencia)`);
+                // M8.5: dar EXP por asistir a torre aliada
+                if (this.targetRef.type === 'tower') givePlayerExp(50);
                 deathPosition.y = GROUND_Y + 1.2;
                 showGoldPopupAt3D(reward, deathPosition, '#88ddff');
             }
@@ -3471,6 +3507,7 @@ function aplicarDanoMeleeJugador(target, dmg) {
         enemyAxieTakeDamage(dmg);
         if (prev > 0 && enemyAxieIsDead) {
             givePlayerGold(ECONOMY.REWARD_ENEMY_AXIE_KILL, '🤖 Axie enemigo eliminado');
+            givePlayerExp(150);
         }
         return;
     }
@@ -3480,9 +3517,16 @@ function aplicarDanoMeleeJugador(target, dmg) {
         if (target.ref.flashHit) target.ref.flashHit();
         if (target.ref.health <= 0 && target.ref.die) {
             target.ref.die('player');
-            if (wasMinion) givePlayerGold(ECONOMY.REWARD_MINION_KILL, '👾 Minion eliminado');
-            else if (wasTower) givePlayerGold(ECONOMY.REWARD_TOWER_KILL, '🗼 Torre destruida');
-            else if (wasNexus) givePlayerGold(ECONOMY.REWARD_NEXUS_KILL, '💎 Nexo destruido');
+            if (wasMinion) {
+                givePlayerGold(ECONOMY.REWARD_MINION_KILL, '👾 Minion eliminado');
+                givePlayerExp(20);
+            } else if (wasTower) {
+                givePlayerGold(ECONOMY.REWARD_TOWER_KILL, '🗼 Torre destruida');
+                givePlayerExp(100);
+            } else if (wasNexus) {
+                givePlayerGold(ECONOMY.REWARD_NEXUS_KILL, '💎 Nexo destruido');
+                givePlayerExp(0);
+            }
         }
     }
 }
@@ -3601,6 +3645,16 @@ class PlayerProjectile {
             }
             playerKillStreak++;
             givePlayerGold(reward, rewardReason);
+            // M8.5: dar EXP al matar minion (según tipo)
+            if (wasMinion) {
+                const isMageExp = this.targetRef.tipo === 'mage';
+                const isBigExp = this.targetRef.esBig;
+                if (isBigExp) givePlayerExp(50);
+                else if (isMageExp) givePlayerExp(25);
+                else givePlayerExp(20);
+            }
+            // M8.5: dar EXP al matar Axie enemigo
+            if (wasEnemyAxie) givePlayerExp(150);
             deathPosition.y = GROUND_Y + 1.2;
             showGoldPopupAt3D(reward, deathPosition, '#ffcc44');
         }
@@ -5619,7 +5673,10 @@ function updateAbilityHUD() {
         if (!box) continue;
         const cd = document.getElementById('ability-cd-' + hab.id);
         const restante = cooldownsHabilidad[hab.id] || 0;
-        const sinMana = hab.mana > 0 && playerMana < hab.mana;
+        // M8.8: leer el maná del nivel actual
+        const vHabHUD = valoresHabilidadActual(hab.id);
+        const manaHUD = vHabHUD ? vHabHUD.mana : 0;
+        const sinMana = manaHUD > 0 && playerMana < manaHUD;
         if (restante > 0) {
             if (cd) cd.textContent = restante.toFixed(1) + 's';
             box.style.opacity = '0.55';
@@ -7103,7 +7160,9 @@ renderer.domElement.addEventListener('mouseup', (e) => {
                 const dxC = objClick.position.x - playerModel.position.x;
                 const dzC = objClick.position.z - playerModel.position.z;
                 const distC = Math.sqrt(dxC * dxC + dzC * dzC);
-                const rangoC = aimingAbility.rango || 8.0;
+                // M8.8: leer el rango del nivel actual
+                const vHabC = valoresHabilidadActual(aimingAbility.id);
+                const rangoC = vHabC ? (vHabC.rango || 8.0) : 8.0;
                 console.log('🔍 Click Q: dist=' + distC.toFixed(2) + ' rango=' + rangoC + ' (dentro=' + (distC <= rangoC) + ')');
                 if (distC > rangoC) {
                     // Fuera de rango: activar auto-approach
@@ -7559,7 +7618,7 @@ async function startAIGame(axieId) {
     playerSpawned = false;
     gameFinished = false;
     gameStarted = false;
-    startTimer = CONFIG.MINION_SPAWN_TIME;
+    startTimer = CONFIG.SPAWN_DELAY;
     waveNumber = 1;
     gameTime = 0;
     isFirstWave = true;
@@ -7680,7 +7739,7 @@ async function startGame(axieId) {
     playerSpawned = false;
     gameFinished = false;
     gameStarted = false;
-    startTimer = CONFIG.MINION_SPAWN_TIME;
+    startTimer = CONFIG.SPAWN_DELAY;
     waveNumber = 1;
     gameTime = 0;
     isFirstWave = true;
@@ -7787,6 +7846,8 @@ function teletransporteAlNexo() {
 
 // Recarga restante por habilidad, en segundos.
 const cooldownsHabilidad = {};
+// M8.8: Niveles actuales de cada habilidad (por ahora todos a 1)
+const nivelesHabilidad = { q: 1, w: 1, e: 1, r: 1 };
 // Tabla tecla -> id de habilidad, construida desde el catalogo. Asi reasignar
 // una tecla es cambiar 'tecla' en el catalogo y nada mas.
 const HABILIDADES_POR_TECLA = {};
@@ -7795,6 +7856,21 @@ for (const h of getHabilidades()) HABILIDADES_POR_TECLA[h.tecla.toLowerCase()] =
 const ondasActivas = [];
 // Huecos del HUD, por id de habilidad.
 let habilidadCajas = {};
+
+// M8.8: Devuelve los valores de una habilidad en su nivel actual
+// Uso: const valores = valoresHabilidadActual('q');
+//      console.log(valores.mana, valores.dano, valores.cooldown);
+function valoresHabilidadActual(id) {
+    const nivel = nivelesHabilidad[id] || 1;
+    const h = getHabilidadEnNivel(id, nivel);
+    return h || null;
+}
+
+// M8.8: Devuelve los valores de una habilidad en un nivel concreto
+function valoresHabilidadEnNivel(id, nivel) {
+    const h = getHabilidadEnNivel(id, nivel);
+    return h || null;
+}
 
 // Puerta comun: comprueba que se puede actuar y que hay mana. NO descuenta.
 // Devuelve false y explica por consola por que no se puede.
@@ -7808,8 +7884,11 @@ function habilidadDisponible(hab) {
         console.log('⏳ ' + hab.nombre + ' en recarga: ' + cooldownsHabilidad[hab.id].toFixed(1) + 's');
         return false;
     }
-    if (hab.mana > 0 && playerMana < hab.mana) {
-        console.log('⛔ Mana insuficiente (' + Math.floor(playerMana) + '/' + hab.mana + ')');
+    // M8.8: usar los valores del nivel actual
+    const v = valoresHabilidadActual(hab.id);
+    const mana = v ? v.mana : 0;
+    if (mana > 0 && playerMana < mana) {
+        console.log('⛔ Mana insuficiente (' + Math.floor(playerMana) + '/' + mana + ')');
         return false;
     }
     return true;
@@ -7899,6 +7978,12 @@ function togglePasiva(hab) {
     const estabaActiva = !!pasivasActivas[id];
     const nuevoEstado = !estabaActiva;
 
+    // M8.8: leer los bonus del nivel actual
+    const vHabE = valoresHabilidadActual(hab.id);
+    if (vHabE && vHabE.bonus) {
+        hab = Object.assign({}, hab, { bonus: vHabE.bonus });
+    }
+
     aplicarBonusPasiva(hab, nuevoEstado);
     pasivasActivas[id] = nuevoEstado;
 
@@ -7963,35 +8048,44 @@ function aplicarHabilidad(hab) {
 
 // Habilidad de area: cuesta mana, recarga y golpea a todo lo enemigo cercano.
 function aplicarHabilidadArea(hab) {
-    playerMana -= hab.mana;
-    cooldownsHabilidad[hab.id] = hab.cooldown;
+    // M8.8: leer los valores del nivel actual
+    const vHabArea = valoresHabilidadActual(hab.id);
+    const manaHabArea = vHabArea ? vHabArea.mana : 0;
+    const cdHabArea = vHabArea ? vHabArea.cooldown : 10;
+    const radioHabArea = vHabArea ? (vHabArea.radio || 2.5) : 2.5;
+    const danoHabArea = vHabArea ? (vHabArea.dano || 0) : 0;
+
+    // Consumir maná y poner cooldown
+    playerMana -= manaHabArea;
+    if (playerMana < 0) playerMana = 0;
+    cooldownsHabilidad[hab.id] = cdHabArea;
     updatePlayerHUD();
 
     const centro = playerModel.position;
     let impactos = 0;
     for (const m of enemigos) {
         if (m.isDead || !m.group) continue;
-        if (centro.distanceTo(m.group.position) <= hab.radio) {
-            aplicarDanoMeleeJugador({ ref: m, isDead: m.isDead, type: 'minion' }, hab.dano);
+        if (centro.distanceTo(m.group.position) <= radioHabArea) {
+            aplicarDanoMeleeJugador({ ref: m, isDead: m.isDead, type: 'minion' }, danoHabArea);
             impactos++;
         }
     }
     if (enemyAxieModel && !enemyAxieIsDead
-        && centro.distanceTo(enemyAxieModel.position) <= hab.radio) {
-        aplicarDanoMeleeJugador({ ref: null, isDead: false, type: 'enemy_axie' }, hab.dano);
+        && centro.distanceTo(enemyAxieModel.position) <= radioHabArea) {
+        aplicarDanoMeleeJugador({ ref: null, isDead: false, type: 'enemy_axie' }, danoHabArea);
         impactos++;
     }
     for (const tw of towers) {
         if (tw.isDead || !tw.isEnemy) continue;
-        if (centro.distanceTo(tw.position) <= hab.radio) {
-            aplicarDanoMeleeJugador({ ref: tw, isDead: tw.isDead, type: 'tower' }, hab.dano);
+        if (centro.distanceTo(tw.position) <= radioHabArea) {
+            aplicarDanoMeleeJugador({ ref: tw, isDead: tw.isDead, type: 'tower' }, danoHabArea);
             impactos++;
         }
     }
 
     // Onda visual: anillo que se expande y se desvanece.
     const anillo = new THREE.Mesh(
-        new THREE.RingGeometry(hab.radio * 0.35, hab.radio, 32),
+        new THREE.RingGeometry(radioHabArea * 0.35, radioHabArea, 32),
         new THREE.MeshBasicMaterial({ color: hab.color, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
     );
     anillo.rotation.x = -Math.PI / 2;
