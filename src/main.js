@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { getAxieById, getAllAxies, getPerfilCombate } from './config/axies.js';
-import { getHabilidades, getHabilidad, setAxieActual } from './config/habilidades.js';
+import { getHabilidades, getHabilidad, setAxieActual, getHabilidadEnNivel } from './config/habilidades.js';
 import { audio } from './audio/AudioManager.js';
 import { initCombatSystem } from './systems/combat-controller.js';
 
@@ -1737,11 +1737,8 @@ function actualizarApuntado(delta) {
                 // M8.8: leer el rango del nivel actual
                 const vHabQ = valoresHabilidadActual(aimingAbility.id);
                 const rango = vHabQ ? (vHabQ.rango || 8.0) : 8.0;
-                if (dist <= rango) {
-                    nuevoTarget = posibleTarget;
-                } else {
-                    nuevoTarget = null;  // fuera de rango: lo tratamos como "suelo"
-                }
+                // M8.8-fix: siempre guardar el target (el rango se verifica al lanzar)
+                nuevoTarget = posibleTarget;
             }
         }
     }
@@ -1802,7 +1799,9 @@ function actualizarAutoApproachQ(delta) {
     const vHabAA = valoresHabilidadActual(aimingAbility.id);
     const rango = vHabAA ? (vHabAA.rango || 8.0) : 8.0;
 
-    if (dist <= rango) {
+    // M8.8-fix: margen de lanzamiento anti-overshoot y zona de parada más conservadora
+    const margenLanzamiento = 0.3;
+    if (dist <= rango - margenLanzamiento) {
         // En rango: lanzar la Q automáticamente
         console.log('✅ En rango: lanzando Q automáticamente');
         isMovingToTarget = false;
@@ -1815,7 +1814,8 @@ function actualizarAutoApproachQ(delta) {
     }
 
     // Recalcular posición objetivo cada frame (por si el enemigo se mueve)
-    const stopDist = Math.max(0.5, rango - 0.5);
+    // M8.8-fix: zona de parada más conservadora (antes rango - 0.5)
+    const stopDist = Math.max(0.5, rango - 1.2);
     const ratio = stopDist / dist;
     const targetX = playerModel.position.x + dx * ratio;
     const targetZ = playerModel.position.z + dz * ratio;
@@ -5714,6 +5714,8 @@ function createItemHUD(h) {
 
 function updatePlayerHUD() {
     updatePlayerHealthBarSprite();   // barra 3D sobre la cabeza del Axie
+    // M8.8-fix: actualizar también el HUD de nivel/EXP
+    if (typeof updateLevelHUD === 'function') updateLevelHUD();
     if (!playerHUD) return;
     if (isAITrainingMode) { updateDynamicHUDForCamera(); return; }
 
@@ -5750,6 +5752,9 @@ function givePlayerExp(amount) {
         playerExpNext = Math.round(100 + (playerLevel - 1) * 50);
         console.log('⭐ ¡SUBISTE A NIVEL ' + playerLevel + '!');
     }
+    // M8.8-fix: actualizar el HUD de nivel/EXP SIEMPRE (no solo al subir)
+    if (typeof updateLevelHUD === 'function') updateLevelHUD();
+
     if (subioNivel) {
         updatePlayerHUD();
         if (playerModel) {
