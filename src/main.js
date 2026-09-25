@@ -5638,7 +5638,7 @@ function createAbilityHUD(h) {
     // M8.9e: fila de botones + (LoL estilo) - 4 botones alineados a las 4 habilidades
     const plusRow = document.createElement('div');
     plusRow.id = 'ability-plus-row';
-    plusRow.style.cssText = `display:flex;flex-direction:row;gap:10px;justify-content:center;pointer-events:auto;`;
+    plusRow.style.cssText = `display:flex;flex-direction:row;gap:10px;justify-content:flex-start;pointer-events:auto;padding:12px;border:2px solid transparent;box-sizing:border-box;`;
     abilityWrapper.appendChild(plusRow);
     
     abilityHUD = document.createElement('div');
@@ -5687,15 +5687,16 @@ function createAbilityHUD(h) {
         plusBtn.dataset.abilityId = hab.id;
         plusBtn.textContent = '+';
         plusBtn.style.cssText = `
-            width: 28px;
-            height: 28px;
+            width: 80px;
+            height: 36px;
             background: linear-gradient(135deg, #ffdd44, #ffaa00);
             border: 2px solid #fff8cc;
             border-radius: 6px;
             color: #4a3000;
-            font-size: 18px;
+            font-size: 22px;
             font-weight: bold;
-            display: none;
+            display: flex;
+            visibility: hidden;
             align-items: center;
             justify-content: center;
             cursor: pointer;
@@ -5856,16 +5857,32 @@ function givePlayerExp(amount) {
 
 // M8.7: Comprobar si se puede subir una habilidad
 function puedeSubirHabilidad(id) {
-    if (typeof puntosHabilidadDisponibles === 'undefined') return false;
-    if (puntosHabilidadDisponibles <= 0) return false;
+    if (typeof puntosHabilidadDisponibles === 'undefined') return { ok: false, razon: 'sistema no iniciado' };
     const nivelActual = nivelesHabilidad[id] ?? 0;
-    // M8.7: máximo nivel 5 por habilidad
-    return nivelActual < 5;
+    // Regla: máximo 3 niveles por habilidad
+    if (nivelActual >= 3) {
+        return { ok: false, razon: id.toUpperCase() + ' ya está al máximo (Nv. 3)' };
+    }
+    // Regla: debe haber puntos disponibles
+    if (puntosHabilidadDisponibles <= 0) {
+        return { ok: false, razon: 'no hay puntos disponibles' };
+    }
+    // Reglas LoL de qué se puede subir en cada nivel del Axie
+    const nivelAxie = playerLevel || 1;
+    const soloR = (nivelAxie === 4 || nivelAxie === 8 || nivelAxie === 12);
+    const esR = (id === 'r');
+    if (soloR && !esR) {
+        return { ok: false, razon: 'en Nv. ' + nivelAxie + ' solo puedes subir R' };
+    }
+    if (!soloR && esR) {
+        return { ok: false, razon: 'R solo se puede subir en los niveles 4, 8 y 12' };
+    }
+    return { ok: true, razon: '' };
 }
 
 // M8.7: Subir nivel de habilidad
 function subirHabilidad(id) {
-    if (!puedeSubirHabilidad(id)) {
+    if (!puedeSubirHabilidad(id).ok) {
         console.log('❌ No se puede subir habilidad ' + id);
         return false;
     }
@@ -5922,8 +5939,8 @@ function updateAbilityPlusVisibility() {
     const plusBtns = plusRow.querySelectorAll('.ability-plus-row-btn');
     for (const plusBtn of plusBtns) {
         const habId = plusBtn.dataset.abilityId;
-        const puedeSubir = puedeSubirHabilidad(habId);
-        plusBtn.style.display = puedeSubir ? 'flex' : 'none';
+        const check = puedeSubirHabilidad(habId);
+        plusBtn.style.visibility = check.ok ? 'visible' : 'hidden';
     }
 }
 
@@ -7806,6 +7823,10 @@ async function startAIGame(axieId) {
     playerAIPotionCount = 0;
     playerAIPotionCooldown = 0;
     playerDeathCount = 0;
+    // M8.9h: actualizar visibilidad de "+" tras crear el HUD
+    setTimeout(() => {
+        if (typeof updateAbilityPlusVisibility === 'function') updateAbilityPlusVisibility();
+    }, 150);
     playerSpeed = CONFIG.axieSpeed;
     attackDamage = CONFIG.attackDamage;
     attackRange = CONFIG.attackRange;
@@ -7913,7 +7934,9 @@ async function startGame(axieId) {
     puntosHabilidadDisponibles = 1;
     console.log('➕ Punto inicial de habilidad disponible');
     // M8.9a: actualizar visibilidad del botón + tras iniciar
-    if (typeof updateAbilityPlusVisibility === 'function') updateAbilityPlusVisibility();
+    setTimeout(() => {
+        if (typeof updateAbilityPlusVisibility === 'function') updateAbilityPlusVisibility();
+    }, 150);
     playerSpeed = CONFIG.axieSpeed;
     attackDamage = CONFIG.attackDamage;
     attackRange = CONFIG.attackRange;
