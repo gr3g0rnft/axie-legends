@@ -1947,9 +1947,10 @@ function lanzarHabilidadApuntada() {
     const origen = playerModel.position.clone();
     origen.y = 0.9;
 
+    const tipoTarget = target.type || (target.ref ? target.ref.type : 'minion');
     const proj = new PlayerProjectile(
         origen,
-        { group: obj, isDead: false, type: 'minion', ref: target },
+        { group: obj, isDead: false, type: tipoTarget, ref: target, isEnemy: true },
         danoHab,
         proyectilDelPerfil()
     );
@@ -3599,6 +3600,7 @@ class PlayerProjectile {
         if (!this.active) return;
         this.active = false;
         if (this.targetRef.isDead) { scene.remove(this.mesh); return; }
+        const realTarget = this.targetRef.ref || this.targetRef;
         const wasEnemyAxie = this.targetRef.type === 'enemy_axie';
         const wasTower = this.targetRef.type === 'tower';
         const wasNexus = this.targetRef.type === 'nexus';
@@ -3619,22 +3621,22 @@ class PlayerProjectile {
                 if (enemyAxieModel) deathPosition.copy(enemyAxieModel.position);
             }
         } else if (this.targetRef.isEnemy === true) {
-            this.targetRef.health -= this.damage;
-            if (this.targetRef.updateHealthBar) this.targetRef.updateHealthBar();
-            if (this.targetRef.flashHit) this.targetRef.flashHit();
-            if (window.currentTarget === this.targetRef) window.showTarget(this.targetRef);
-            if (this.targetRef.health <= 0) {
+            realTarget.health -= this.damage;
+            if (realTarget.updateHealthBar) realTarget.updateHealthBar();
+            if (realTarget.flashHit) realTarget.flashHit();
+            if (window.currentTarget === realTarget) window.showTarget(realTarget);
+            if (realTarget.health <= 0) {
                 targetDied = true;
-                if (wasTower) { reward = ECONOMY.REWARD_TOWER_KILL; rewardReason = '🗼 Torre destruida'; if (this.targetRef.position) deathPosition.copy(this.targetRef.position); }
+                if (wasTower) { reward = ECONOMY.REWARD_TOWER_KILL; rewardReason = '🗼 Torre destruida'; if (realTarget.position) deathPosition.copy(realTarget.position); }
                 else if (wasNexus) { reward = ECONOMY.REWARD_NEXUS_KILL; rewardReason = '💎 Nexo destruido'; }
                 else if (wasMinion) {
-                    const isMage = this.targetRef.tipo === 'mage';
+                    const isMage = realTarget.tipo === 'mage';
                     reward = isMage ? ECONOMY.REWARD_MAGE_KILL : ECONOMY.REWARD_MINION_KILL;
                     rewardReason = isMage ? '🧙 Mago eliminado' : '⚔️ Minion eliminado';
-                    if (this.targetRef.group) deathPosition.copy(this.targetRef.group.position);
+                    if (realTarget.group) deathPosition.copy(realTarget.group.position);
                 }
-                if (this.targetRef.die) this.targetRef.die('player');
-                if (window.currentTarget === this.targetRef) { window.currentTarget = null; targetUI.style.display = 'none'; }
+                if (realTarget.die) realTarget.die('player');
+                if (window.currentTarget === realTarget) { window.currentTarget = null; targetUI.style.display = 'none'; }
             }
         }
         if (targetDied && !isAITrainingMode) {
@@ -3647,8 +3649,8 @@ class PlayerProjectile {
             givePlayerGold(reward, rewardReason);
             // M8.5: dar EXP al matar minion (según tipo)
             if (wasMinion) {
-                const isMageExp = this.targetRef.tipo === 'mage';
-                const isBigExp = this.targetRef.esBig;
+                const isMageExp = realTarget.tipo === 'mage';
+                const isBigExp = realTarget.esBig;
                 if (isBigExp) givePlayerExp(50);
                 else if (isMageExp) givePlayerExp(25);
                 else givePlayerExp(20);
@@ -3662,11 +3664,11 @@ class PlayerProjectile {
             let aiReward = 0;
             if (wasTower) aiReward = PLAYER_GOLD_PER_TOWER_KILL;
             else if (wasNexus) aiReward = PLAYER_GOLD_PER_NEXUS_KILL;
-            else if (wasMinion) { aiReward = (this.targetRef.tipo === 'mage') ? 18 : PLAYER_GOLD_PER_MINION_KILL; }
+            else if (wasMinion) { aiReward = (realTarget.tipo === 'mage') ? 18 : PLAYER_GOLD_PER_MINION_KILL; }
             else if (wasEnemyAxie) aiReward = PLAYER_GOLD_PER_ENEMY_AXIE_KILL;
             playerAIGold += aiReward;
         }
-        playerAttackTarget = this.targetRef;
+        playerAttackTarget = realTarget;
         setTimeout(() => { playerAttackTarget = null; }, 2000);
         scene.remove(this.mesh);
     }
@@ -5627,9 +5629,23 @@ function createPotionHUD(h) {
 function createAbilityHUD(h) {
     if (abilityHUD) abilityHUD.remove();
     habilidadCajas = {};
+    
+    // M8.9e: contenedor principal (fila de + encima + HUD de habilidades)
+    const abilityWrapper = document.createElement('div');
+    abilityWrapper.id = 'ability-wrapper';
+    abilityWrapper.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-145%);z-index:1001;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:auto;`;
+    
+    // M8.9e: fila de botones + (LoL estilo) - 4 botones alineados a las 4 habilidades
+    const plusRow = document.createElement('div');
+    plusRow.id = 'ability-plus-row';
+    plusRow.style.cssText = `display:flex;flex-direction:row;gap:10px;justify-content:center;pointer-events:auto;`;
+    abilityWrapper.appendChild(plusRow);
+    
     abilityHUD = document.createElement('div');
     // Solo las habilidades se desplazan a la izquierda para no solaparse con las demás barras.
-    abilityHUD.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-145%);z-index:1001;background:rgba(0,0,0,0.9);border:2px solid rgba(255,255,255,0.3);border-radius:14px;padding:12px;display:flex;flex-direction:row;gap:10px;box-sizing:border-box;pointer-events:auto;align-items:center;`;
+    abilityHUD.style.cssText = `background:rgba(0,0,0,0.9);border:2px solid rgba(255,255,255,0.3);border-radius:14px;padding:12px;display:flex;flex-direction:row;gap:10px;box-sizing:border-box;pointer-events:auto;align-items:center;`;
+    abilityWrapper.appendChild(abilityHUD);
+    
     for (const hab of getHabilidades()) {
         const box = document.createElement('div');
         box.style.cssText = `width:80px;height:80px;background:rgba(0,0,0,0.6);border:2px solid ${hab.color};border-radius:10px;display:flex;align-items:center;justify-content:center;user-select:none;overflow:hidden;position:relative;`;
@@ -5652,10 +5668,64 @@ function createAbilityHUD(h) {
         cd.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#fff;text-shadow:0 0 5px #000;z-index:4;';
         box.appendChild(cd);
 
+        // M8.9d: indicador de nivel individual (se mantiene)
+        const levelInd = document.createElement('div');
+        levelInd.id = 'ability-level-' + hab.id;
+        levelInd.style.cssText = 'position:absolute;top:4px;right:6px;font-size:11px;font-weight:bold;color:#fff;background:rgba(0,0,0,0.7);padding:1px 5px;border-radius:4px;z-index:6;';
+        levelInd.textContent = nivelesHabilidad[hab.tecla.toLowerCase()] ?? 0;
+        box.appendChild(levelInd);
+
         habilidadCajas[hab.id] = box;
         abilityHUD.appendChild(box);
     }
-    document.body.appendChild(abilityHUD);
+
+    // M8.9e: crear 4 botones + en la fila superior, uno por habilidad
+    const habilidades = getHabilidades();
+    for (const hab of habilidades) {
+        const plusBtn = document.createElement('div');
+        plusBtn.className = 'ability-plus-row-btn';
+        plusBtn.dataset.abilityId = hab.id;
+        plusBtn.textContent = '+';
+        plusBtn.style.cssText = `
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #ffdd44, #ffaa00);
+            border: 2px solid #fff8cc;
+            border-radius: 6px;
+            color: #4a3000;
+            font-size: 18px;
+            font-weight: bold;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 0 10px rgba(255,220,80,0.8), 0 0 20px rgba(255,200,50,0.4);
+            animation: pulsePlus 1.3s ease-in-out infinite;
+            font-family: 'Arial Black', sans-serif;
+            line-height: 1;
+            padding: 0;
+        `;
+        plusBtn.title = 'Mejorar ' + hab.nombre;
+        plusBtn.onclick = () => {
+            const exito = subirHabilidad(hab.id);
+            if (exito) {
+                updateAbilityPlusVisibility();
+                updateAbilityHUD();
+            }
+        };
+        plusRow.appendChild(plusBtn);
+    }
+
+    // Inyectar keyframes para pulsación
+    if (!document.getElementById('pulsePlusStyle')) {
+        const style = document.createElement('style');
+        style.id = 'pulsePlusStyle';
+        style.textContent = '@keyframes pulsePlus {0% { opacity:0.8; box-shadow:0 0 0 0 rgba(255,255,0,0.7);} 70% { opacity:1; box-shadow:0 0 0 8px rgba(255,255,0,0);} 100% { opacity:0.8; box-shadow:0 0 0 0 rgba(255,255,0,0);}}';
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(abilityWrapper);
 }
 
 // Dibuja la tecla y el nombre dentro de un hueco sin icono.
@@ -5687,7 +5757,18 @@ function updateAbilityHUD() {
             if (cd) cd.textContent = '';
             box.style.opacity = '1';
         }
+        // M8.9b: actualizar nivel individual
+        const levelInd = document.getElementById('ability-level-' + hab.id);
+        if (levelInd) {
+            const nivel = nivelesHabilidad[hab.tecla.toLowerCase()] ?? 0;
+            levelInd.textContent = nivel;
+        }
     }
+}
+
+// M8.9c: deshabilitar uso de habilidades en modo subida
+function isAbilityUseDisabled() {
+    return false;
 }
 
 function createItemHUD(h) {
@@ -5755,6 +5836,8 @@ function givePlayerExp(amount) {
         if (typeof puntosHabilidadDisponibles !== 'undefined') {
             puntosHabilidadDisponibles++;
             console.log('➕ Punto de habilidad disponible: ' + puntosHabilidadDisponibles);
+            // M8.9a: actualizar visibilidad del botón +
+            if (typeof updateAbilityPlusVisibility === 'function') updateAbilityPlusVisibility();
         }
     }
     // M8.8-fix: actualizar el HUD de nivel/EXP SIEMPRE (no solo al subir)
@@ -5791,7 +5874,26 @@ function subirHabilidad(id) {
     console.log('✅ Habilidad ' + id + ' subida a nivel ' + nivelesHabilidad[id] + '. Puntos restantes: ' + puntosHabilidadDisponibles);
     // Actualizar HUD de habilidades si existe
     if (typeof updateAbilityHUD === 'function') updateAbilityHUD();
+    // M8.9a: actualizar visibilidad del botón +
+    if (typeof updateAbilityPlusVisibility === 'function') updateAbilityPlusVisibility();
+    // M8.9b: aplicar cambios visuales inmediatos
+    updateAbilityHUD();
     return true;
+}
+
+// M8.9c: entrar en modo de subida de habilidades
+function entrarModoSubidaHabilidad() {
+    console.warn('entrarModoSubidaHabilidad eliminado en M8.9d');
+}
+
+// M8.9c: salir del modo de subida de habilidades
+function salirModoSubidaHabilidad() {
+    console.warn('salirModoSubidaHabilidad eliminado en M8.9d');
+}
+
+// M8.9c: iluminar habilidades subibles
+function iluminarHabilidadesSubibles() {
+    console.warn('iluminarHabilidadesSubibles eliminado en M8.9d');
 }
 
 // --- M8.2: Actualizar el texto de nivel y EXP en el HUD ---
@@ -5807,6 +5909,21 @@ function updateLevelHUD() {
     if (expText) {
         if (playerLevel >= PLAYER_MAX_LEVEL) expText.textContent = 'MAX';
         else expText.textContent = Math.floor(playerExp) + '/' + playerExpNext;
+    }
+    // M8.9a: actualizar visibilidad del botón +
+    updateAbilityPlusVisibility();
+}
+
+// M8.9a: controla si el botón + está visible según puntos disponibles
+function updateAbilityPlusVisibility() {
+    // M8.9e: regla LoL usando puedeSubirHabilidad - un + por botón en la fila superior
+    const plusRow = document.getElementById('ability-plus-row');
+    if (!plusRow) return;
+    const plusBtns = plusRow.querySelectorAll('.ability-plus-row-btn');
+    for (const plusBtn of plusBtns) {
+        const habId = plusBtn.dataset.abilityId;
+        const puedeSubir = puedeSubirHabilidad(habId);
+        plusBtn.style.display = puedeSubir ? 'flex' : 'none';
     }
 }
 
@@ -7413,6 +7530,9 @@ function abandonGame() {
     if (hudWrapper) { hudWrapper.remove(); hudWrapper = null; }
     if (potionHUD) { potionHUD.remove(); potionHUD = null; }
     if (itemHUD) { itemHUD.remove(); itemHUD = null; }
+    // M8.9e: quitar wrapper de habilidades (incluye fila de +)
+    const abilityWrapper = document.getElementById('ability-wrapper');
+    if (abilityWrapper) { abilityWrapper.remove(); }
     if (abilityHUD) { abilityHUD.remove(); abilityHUD = null; }
     enemyAxieDebugHUD.style.display = 'none';
     goldDiv.style.display = 'none';
@@ -7467,6 +7587,8 @@ function abandonGame() {
     // M8.7: resetear habilidades al abandonar partida
     nivelesHabilidad = { q: 0, w: 0, e: 0, r: 0 };
     puntosHabilidadDisponibles = 0;
+    // M8.9a: ocultar botón + al abandonar
+    if (typeof updateAbilityPlusVisibility === 'function') updateAbilityPlusVisibility();
     resetEnemyAxie();
     stopGameLoop();
     if (timerDiv) timerDiv.style.display = 'none';
@@ -7790,6 +7912,8 @@ async function startGame(axieId) {
     nivelesHabilidad = { q: 0, w: 0, e: 0, r: 0 };
     puntosHabilidadDisponibles = 1;
     console.log('➕ Punto inicial de habilidad disponible');
+    // M8.9a: actualizar visibilidad del botón + tras iniciar
+    if (typeof updateAbilityPlusVisibility === 'function') updateAbilityPlusVisibility();
     playerSpeed = CONFIG.axieSpeed;
     attackDamage = CONFIG.attackDamage;
     attackRange = CONFIG.attackRange;
@@ -8967,6 +9091,8 @@ window.updateCameraHUD = updateCameraHUD;
 // M8.7: exponer subida de habilidades a debug
 window.subirHabilidad = subirHabilidad;
 window.puedeSubirHabilidad = puedeSubirHabilidad;
+// M8.9a: exponer control de visibilidad del botón +
+window.updateAbilityPlusVisibility = updateAbilityPlusVisibility;
 
 import './js/hub-control.js';
 import './js/inject-memory.js';
