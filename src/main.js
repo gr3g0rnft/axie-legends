@@ -448,6 +448,17 @@ let playerHealthSprite = null;   // barra 3D sobre la cabeza del Axie
 let playerMaxHealth = CONFIG.playerMaxHealth;
 let playerMana = CONFIG.playerMaxMana;
 let playerMaxMana = CONFIG.playerMaxMana;
+// --- M8.1: Sistema de Niveles y EXP ---
+let playerLevel = 1;
+const PLAYER_MAX_LEVEL = 12;
+let playerExp = 0;
+let playerExpNext = 100; // EXP necesaria para el siguiente nivel
+const LEVEL_UP_GAIN = {
+    health: 50,     // +50 de vida máxima por nivel
+    mana: 30,       // +30 de maná máximo por nivel
+    damage: 5,      // +5 de daño de ataque por nivel
+    armor: 5        // +5 de armadura por nivel
+};
 let isPlayerDead = false;
 let playerRespawnTimer = 0;
 let playerAttackTarget = null;
@@ -5511,6 +5522,14 @@ function createPlayerHUD() {
             </div>
             <span id="player-hud-mana-text" style="font-size:14px;font-weight:bold;">200/200</span>
         </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,170,255,0.2);">
+            <span style="color:#00aaff;font-size:14px;">⭐</span>
+            <div id="player-level-text" style="font-size:14px;font-weight:bold;color:#00aaff;text-shadow:0 0 6px rgba(0,170,255,0.6);min-width:44px;">Nv. 1</div>
+            <div style="flex:1;height:12px;background:rgba(255,255,255,0.1);border-radius:6px;overflow:hidden;border:1px solid rgba(0,170,255,0.3);">
+                <div id="player-exp-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#0088dd,#00aaff,#44ccff);transition:width 0.4s ease;box-shadow:0 0 6px rgba(0,170,255,0.8);"></div>
+            </div>
+            <span id="player-exp-text" style="font-size:11px;color:#88bbdd;font-weight:bold;min-width:52px;text-align:right;">0/100</span>
+        </div>
     `;
     hudWrapper.appendChild(playerHUD);
     
@@ -5523,6 +5542,7 @@ function createPlayerHUD() {
     });
 }
 
+// --- M8.4: HUD de nivel y EXP ---
 function createPotionHUD(h) {
     if (potionHUD) potionHUD.remove();
     potionHUD = document.createElement('div');
@@ -5652,6 +5672,57 @@ function updatePlayerHUD() {
     if (hpText) hpText.textContent = `${Math.floor(playerHealth)}/${playerMaxHealth}`;
     if (mpBar) mpBar.style.width = `${mpPct}%`;
     if (mpText) mpText.textContent = `${Math.floor(playerMana)}/${playerMaxMana}`;
+}
+
+// --- M8.2: Dar experiencia al jugador ---
+function givePlayerExp(amount) {
+    if (isAITrainingMode) return;
+    if (playerLevel >= PLAYER_MAX_LEVEL) return;
+    playerExp += amount;
+    let subioNivel = false;
+    while (playerExp >= playerExpNext && playerLevel < PLAYER_MAX_LEVEL) {
+        playerExp -= playerExpNext;
+        playerLevel++;
+        subioNivel = true;
+        playerMaxHealth += LEVEL_UP_GAIN.health;
+        playerHealth += LEVEL_UP_GAIN.health;
+        playerMaxMana += LEVEL_UP_GAIN.mana;
+        playerMana += LEVEL_UP_GAIN.mana;
+        attackDamage += LEVEL_UP_GAIN.damage;
+        playerArmor += LEVEL_UP_GAIN.armor;
+        playerExpNext = Math.round(100 + (playerLevel - 1) * 50);
+        console.log('⭐ ¡SUBISTE A NIVEL ' + playerLevel + '!');
+    }
+    if (subioNivel) {
+        updatePlayerHUD();
+        if (playerModel) {
+            const flash = new THREE.PointLight(0x00aaff, 3.0, 8.0);
+            flash.position.set(playerModel.position.x, GROUND_Y + 1.5, playerModel.position.z);
+            scene.add(flash);
+            setTimeout(() => scene.remove(flash), 400);
+        }
+    }
+}
+
+// --- M8.2: Actualizar el texto de nivel y EXP en el HUD ---
+function updateLevelHUD() {
+    const levelEl = document.getElementById('player-level-text');
+    const expBar = document.getElementById('player-exp-bar');
+    const expText = document.getElementById('player-exp-text');
+    if (levelEl) levelEl.textContent = 'Nv. ' + playerLevel;
+    if (expBar) {
+        const pct = playerLevel >= PLAYER_MAX_LEVEL ? 100 : (playerExp / playerExpNext) * 100;
+        expBar.style.width = Math.min(100, pct) + '%';
+    }
+    if (expText) {
+        if (playerLevel >= PLAYER_MAX_LEVEL) expText.textContent = 'MAX';
+        else expText.textContent = Math.floor(playerExp) + '/' + playerExpNext;
+    }
+}
+
+// --- M8.2: Obtener el nivel actual (para consultas) ---
+function getPlayerLevel() {
+    return playerLevel;
 }
 
 function updatePotionHUD() {
@@ -7550,6 +7621,7 @@ async function startAIGame(axieId) {
     resetDynamicCamera();
     chooseNewDynamicCameraTarget();
     if (!playerHUD) { createPlayerHUD(); updatePlayerHUD(); }
+    updateLevelHUD();
     updatePotionHUD();
     goldDiv.style.display = 'block';
     updatePlayerGoldHUD();
