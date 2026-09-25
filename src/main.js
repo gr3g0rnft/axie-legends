@@ -1646,6 +1646,13 @@ function cancelarApuntado() {
         });
         aimHighlight = null;
     }
+    // M7.5: quitar también el aro pequeño
+    if (aimGroundIndicator) {
+        scene.remove(aimGroundIndicator);
+        aimGroundIndicator.geometry.dispose();
+        aimGroundIndicator.material.dispose();
+        aimGroundIndicator = null;
+    }
 }
 
 // --- M2.3: actualizar apuntado (detecta enemigo bajo el cursor) ---
@@ -1670,6 +1677,11 @@ function actualizarApuntado(delta) {
     );
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, camera);
+
+    // Calcular posición del ratón sobre el suelo
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
+    const puntoSuelo = new THREE.Vector3();
+    const haySuelo = raycaster.ray.intersectPlane(plane, puntoSuelo);
 
     // Recoger todos los enemigos vivos
     const selectables = [];
@@ -1700,17 +1712,46 @@ function actualizarApuntado(delta) {
         });
     }
 
-    // Raycast
+    // Raycast sobre enemigos
     const intersects = raycaster.intersectObjects(selectables, false);
     let nuevoTarget = null;
     if (intersects.length > 0) {
-        nuevoTarget = intersects[0].object.userData.aimTargetRef || null;
+        const posibleTarget = intersects[0].object.userData.aimTargetRef || null;
+        if (posibleTarget) {
+            const obj = posibleTarget.group || posibleTarget.ref?.group || posibleTarget;
+            if (obj && obj.position && playerModel) {
+                const dx = obj.position.x - playerModel.position.x;
+                const dz = obj.position.z - playerModel.position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+                const rango = aimingAbility.rango || 8.0;
+                if (dist <= rango) {
+                    nuevoTarget = posibleTarget;
+                } else {
+                    nuevoTarget = null;  // fuera de rango: lo tratamos como "suelo"
+                }
+            }
+        }
     }
 
-    // Si cambió el target, actualizar el aro
+    // Si cambió el target, actualizar el aro grande
     if (nuevoTarget !== aimingTarget) {
         aimingTarget = nuevoTarget;
         actualizarHighlightApuntado();
+    }
+
+    // M7.5: si NO hay enemigo bajo el ratón, mostrar el aro pequeño en 
+    // la posición del suelo. Si SÍ hay enemigo, quitar el aro pequeño.
+    if (aimingTarget) {
+        // Hay enemigo → quitar aro pequeño (el grande ya está)
+        if (aimGroundIndicator) {
+            scene.remove(aimGroundIndicator);
+            aimGroundIndicator.geometry.dispose();
+            aimGroundIndicator.material.dispose();
+            aimGroundIndicator = null;
+        }
+    } else if (haySuelo) {
+        // No hay enemigo → mostrar aro pequeño en el ratón
+        actualizarAimGroundIndicator(puntoSuelo);
     }
 }
 
@@ -1749,11 +1790,55 @@ function actualizarHighlightApuntado() {
     scene.add(aimHighlight);
 }
 
+// --- M7.5: aro pequeño de la Q sobre el suelo (sin enemigo) ---
+function actualizarAimGroundIndicator(pos) {
+    // Eliminar el anterior si existe
+    if (aimGroundIndicator) {
+        scene.remove(aimGroundIndicator);
+        aimGroundIndicator.geometry.dispose();
+        aimGroundIndicator.material.dispose();
+        aimGroundIndicator = null;
+    }
+    if (!pos) return;
+
+    const radio = 0.28;
+    const gro = radio * 0.15;
+    const geo = new THREE.RingGeometry(radio - gro, radio, 40);
+    const mat = new THREE.MeshBasicMaterial({
+        color: INDICATOR_COLOR,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false
+    });
+    aimGroundIndicator = new THREE.Mesh(geo, mat);
+    aimGroundIndicator.rotation.x = -Math.PI / 2;
+    aimGroundIndicator.position.set(pos.x, GROUND_Y + 0.06, pos.z);
+    aimGroundIndicator.renderOrder = 1004;
+    scene.add(aimGroundIndicator);
+}
+
 // --- M3.3: Lanzar la habilidad apuntada al objetivo actual ---
 function lanzarHabilidadApuntada() {
     if (!aimingAbility || !aimingTarget) return;
     const hab = aimingAbility;
     const target = aimingTarget;
+
+    // M7.2: verificar que el objetivo sigue dentro del rango
+    const objVerif = target.group || target.ref?.group || target;
+    if (objVerif && objVerif.position && playerModel) {
+        const dx = objVerif.position.x - playerModel.position.x;
+        const dz = objVerif.position.z - playerModel.position.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const rango = hab.rango || 8.0;
+        if (dist > rango) {
+            console.log('⛔ Objetivo fuera de rango (' + dist.toFixed(1) + ' > ' + rango + ')');
+            // NO cancelamos el apuntado: el jugador puede seguir apuntando
+            return;
+        }
+    }
 
     // Consumir maná y poner cooldown
     playerMana -= hab.mana;
@@ -5135,6 +5220,7 @@ let aimingTarget = null;     // Enemigo bajo el cursor (null si ninguno)
 let aimingTimeout = 0;       // Temporizador de cancelación automática
 const AIMING_TIMEOUT_MAX = 5.0;
 let aimHighlight = null;     // Aro azul que resalta el objetivo apuntado
+let aimGroundIndicator = null;   // aro pequeño que sigue al ratón cuando no hay enemigo
 // --- M2.4: Sistema de apuntado de habilidad de área (W) ---
 let aimingAreaAbility = null;   // Habilidad de área que estamos apuntando
 let aimingAreaPos = null;       // THREE.Vector3 con la posición del círculo
