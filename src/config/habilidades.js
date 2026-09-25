@@ -17,7 +17,7 @@ export const HABILIDADES_POR_AXIE = {
             tipo: 'target',           // dirigida
             mana: 30,
             cooldown: 5.0,
-            rango: 8.0,               // alcance máximo
+            rango: 6.0,               // alcance máximo
             dano: 55
         },
         w: {
@@ -28,8 +28,8 @@ export const HABILIDADES_POR_AXIE = {
             tipo: 'area',             // área en el suelo
             mana: 25,
             cooldown: 10.0,
-            rango: 6.0,               // alcance del área
-            radio: 2.5,               // radio del círculo
+            rango: 4.0,               // alcance del área
+            radio: 2.0,               // radio del círculo
             dano: 40,
             efecto: 'dash'            // además de dañar, hace dash
         },
@@ -53,7 +53,7 @@ export const HABILIDADES_POR_AXIE = {
             subtipo: 'channel',       // canalizada estilo Miss Fortune
             mana: 100,
             cooldown: 80.0,
-            rango: 8.0,                // alcance máximo del cono
+            rango: 7.0,                // alcance máximo del cono
             angulo: 60,                // ángulo del cono en grados
             duracion: 2.0,             // segundos de canalización
             rafagas: 8,                // número de oleadas
