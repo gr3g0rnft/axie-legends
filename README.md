@@ -21,12 +21,12 @@ Motor gráfico para juegos 3D en navegador basado en **Three.js**.
 
 | Acción | Tecla |
 |--------|-------|
-| **Mover al Axie** | Click izquierdo en el suelo |
-| **Atacar** | Automático al acercarse |
-| **Poción HP** | `Q` |
-| **Poción MP** | `E` |
-| **Onda de choque** (habilidad, 40 maná) | `W` |
-| **Reiniciar posición** | `R` |
+| **Mover al Axie** | Click derecho en el suelo |
+| **Atacar** | Click izquierdo  |
+| **Poción HP** | `` |
+| **Poción MP** | `` |
+| **Habilidades** (habilidad, 40 maná) | `Q,W,E,R` |
+| **Reiniciar posición** | `` |
 | **Teletransporte al nexo** | `B` |
 | **Marcador de partida** | `Tab` (mantener) |
 | **Pausa** | `Esc` |
