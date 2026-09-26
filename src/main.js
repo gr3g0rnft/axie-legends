@@ -4,7 +4,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MenuScreen } from './ui/MenuScreen.js';
 import { getAxieById, getAllAxies, getPerfilCombate } from './config/axies.js';
-import { getHabilidades, getHabilidad, setAxieActual, getHabilidadEnNivel } from './config/habilidades.js';
+import { getHabilidades, getHabilidad, setAxieActual, getHabilidadEnNivel, HABILIDADES_POR_AXIE } from './config/habilidades.js';
+window.HABILIDADES_POR_AXIE = HABILIDADES_POR_AXIE;
 import { calcularBonusAxie, getRazasInfo, getPartesAxie, RAZAS, CASILLAS, DESCRIPCIONES_BONUS } from './config/axie-core.js';
 import { audio } from './audio/AudioManager.js';
 

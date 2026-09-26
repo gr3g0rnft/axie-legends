@@ -20,13 +20,18 @@ const TRADUCCIONES = {
         'menu.lang_en':     '🇬🇧 EN',
 
         // Modal de selección de Axie
-        'axie.select_title':    'CHOOSE YOUR AXIE',
-        'axie.duel':            'Duel 1 vs 1',
-        'axie.stats_hp':        'HP',
-        'axie.stats_atk':       'ATTACK',
-        'axie.stats_def':       'DEFENSE',
-        'axie.stats_spd':       'SPEED',
-        'axie.locked':          'LOCKED',
+        'axie.select_title':    'SELECT YOUR AXIE',
+        'axie.subtitle':      'Duel 1 vs 1',
+        'axie.start_match':   '⚔️ START MATCH',
+        'axie.stats_hp':      'HP',
+        'axie.stats_atk':     'ATK',
+        'axie.stats_def':     'DEF',
+        'axie.stats_spd':     'SPD',
+        'axie.stats_range':   'RANGE',
+        'axie.stats_as':      'AS',
+        'axie.stats_mana':    'MANA',
+        'axie.axie_core':     'AXIE CORE',
+        'axie.locked':        'LOCKED',
         'axie.play_button':     'PLAY',
 
         // Modos (para ML.4)
@@ -191,12 +196,17 @@ const TRADUCCIONES = {
 
         // Modal de selección de Axie
         'axie.select_title':    'ELIGE TU AXIE',
-        'axie.duel':            'Duelo 1 vs 1',
-        'axie.stats_hp':        'VIDA',
-        'axie.stats_atk':       'ATAQUE',
-        'axie.stats_def':       'DEFENSA',
-        'axie.stats_spd':       'VELOCIDAD',
-        'axie.locked':          'BLOQUEADO',
+        'axie.subtitle':      'Duelo 1 vs 1',
+        'axie.start_match':   '⚔️ COMENZAR PARTIDA',
+        'axie.stats_hp':      'VIDA',
+        'axie.stats_atk':     'ATAQUE',
+        'axie.stats_def':     'DEFENSA',
+        'axie.stats_spd':     'VELOCIDAD',
+        'axie.stats_range':   'RANGO',
+        'axie.stats_as':      'V.ATAQUE',
+        'axie.stats_mana':    'MANÁ',
+        'axie.axie_core':     'AXIE CORE',
+        'axie.locked':        'BLOQUEADO',
         'axie.play_button':     'JUGAR',
 
         // Modos (para ML.4)
