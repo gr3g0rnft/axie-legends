@@ -9,6 +9,7 @@
 import { getAllAxies, isAxieHabilitado } from '../config/axies.js';
 import { AxiePreviewer } from './AxiePreviewer.js';
 import { audio } from '../audio/AudioManager.js';
+import { t, setIdioma, getIdioma } from '../config/idiomas.js';
 
 export class MenuScreen {
     constructor() {
@@ -150,6 +151,7 @@ export class MenuScreen {
         // content.appendChild(logo);
 
         const subtitle = document.createElement('div');
+        subtitle.id = 'menu-subtitle';
         subtitle.style.cssText = `
             font-size: 26px;
             font-weight: 900;
@@ -173,7 +175,7 @@ export class MenuScreen {
             text-transform: uppercase;
             filter: drop-shadow(0 0 15px rgba(0, 170, 255, 0.7));
         `;
-        subtitle.textContent = '¡Que comience la batalla!';
+        subtitle.textContent = t('menu.subtitle');
         content.appendChild(subtitle);
 
         // ---- BOTONES PRINCIPALES ----
@@ -213,7 +215,7 @@ export class MenuScreen {
         // ---- BOTÓN JUGAR (centrado, grande) ----
         const btnJugar = document.createElement('button');
         btnJugar.id = 'menu-play-btn';
-        btnJugar.textContent = '▶ JUGAR';
+        btnJugar.textContent = t('menu.play');
         btnJugar.style.cssText = `
             pointer-events: auto;
             position: relative;
@@ -306,9 +308,9 @@ export class MenuScreen {
             return btn;
         };
 
-        bottomBar.appendChild(crearBotonInferior('menu-guide-btn', '📖 GUÍA'));
-        bottomBar.appendChild(crearBotonInferior('menu-options-btn', '⚙️ OPCIONES'));
-        bottomBar.appendChild(crearBotonInferior('menu-patch-btn', '📜 PARCHE'));
+        bottomBar.appendChild(crearBotonInferior('menu-guide-btn', t('menu.guide')));
+        bottomBar.appendChild(crearBotonInferior('menu-options-btn', t('menu.options')));
+        bottomBar.appendChild(crearBotonInferior('menu-patch-btn', t('menu.patch')));
 
         const separador = document.createElement('div');
         separador.style.cssText = `
@@ -319,13 +321,23 @@ export class MenuScreen {
         `;
         bottomBar.appendChild(separador);
 
-        const btnES = crearBotonInferior('menu-lang-es-btn', '🇪🇸 ES');
+        const btnES = crearBotonInferior('menu-lang-es-btn', t('menu.lang_es'));
         btnES.style.background = 'rgba(255, 255, 255, 0.08)';
         btnES.style.color = '#fff';
         btnES.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+        btnES.onclick = () => {
+            setIdioma('es');
+            this._actualizarTextos();
+            this._actualizarEstilosIdioma();
+        };
         bottomBar.appendChild(btnES);
 
-        const btnEN = crearBotonInferior('menu-lang-en-btn', '🇬🇧 EN');
+        const btnEN = crearBotonInferior('menu-lang-en-btn', t('menu.lang_en'));
+        btnEN.onclick = () => {
+            setIdioma('en');
+            this._actualizarTextos();
+            this._actualizarEstilosIdioma();
+        };
         btnEN.style.background = 'linear-gradient(135deg, rgba(0, 170, 255, 0.4), rgba(0, 102, 204, 0.3))';
         btnEN.style.color = '#fff';
         btnEN.style.borderColor = '#88ddff';
@@ -382,6 +394,67 @@ export class MenuScreen {
             .menu-play-btn { transition: all 0.3s ease; }
         `;
         document.head.appendChild(style);
+    }
+
+    _actualizarTextos() {
+        // Actualizar subtítulo
+        const subtitleEl = document.getElementById('menu-subtitle');
+        if (subtitleEl) subtitleEl.textContent = t('menu.subtitle');
+
+        // Actualizar botón JUGAR
+        const btnJugar = document.getElementById('menu-play-btn');
+        if (btnJugar) btnJugar.textContent = t('menu.play');
+
+        // Actualizar botones inferiores
+        const btnGuide = document.getElementById('menu-guide-btn');
+        if (btnGuide) btnGuide.textContent = t('menu.guide');
+
+        const btnOptions = document.getElementById('menu-options-btn');
+        if (btnOptions) btnOptions.textContent = t('menu.options');
+
+        const btnPatch = document.getElementById('menu-patch-btn');
+        if (btnPatch) btnPatch.textContent = t('menu.patch');
+
+        const btnEs = document.getElementById('menu-lang-es-btn');
+        if (btnEs) btnEs.textContent = t('menu.lang_es');
+
+        const btnEn = document.getElementById('menu-lang-en-btn');
+        if (btnEn) btnEn.textContent = t('menu.lang_en');
+    }
+
+    _actualizarEstilosIdioma() {
+        const idioma = getIdioma();
+
+        const btnES = document.getElementById('menu-lang-es-btn');
+        const btnEN = document.getElementById('menu-lang-en-btn');
+
+        if (btnES) {
+            if (idioma === 'es') {
+                btnES.style.background = 'linear-gradient(135deg, rgba(0, 170, 255, 0.4), rgba(0, 102, 204, 0.3))';
+                btnES.style.borderColor = '#88ddff';
+                btnES.style.boxShadow = '0 0 18px rgba(0, 170, 255, 0.6)';
+                btnES.style.color = '#fff';
+            } else {
+                btnES.style.background = 'rgba(255, 255, 255, 0.08)';
+                btnES.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                btnES.style.boxShadow = 'none';
+                btnES.style.color = '#fff';
+            }
+        }
+
+        if (btnEN) {
+            if (idioma === 'en') {
+                btnEN.style.background = 'linear-gradient(135deg, rgba(0, 170, 255, 0.4), rgba(0, 102, 204, 0.3))';
+                btnEN.style.borderColor = '#88ddff';
+                btnEN.style.boxShadow = '0 0 18px rgba(0, 170, 255, 0.6)';
+                btnEN.style.color = '#fff';
+            } else {
+                btnEN.style.background = 'rgba(255, 255, 255, 0.08)';
+                btnEN.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                btnEN.style.boxShadow = 'none';
+                btnEN.style.color = '#fff';
+            }
+        }
     }
 
     // =========================================
