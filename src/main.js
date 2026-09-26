@@ -5688,6 +5688,20 @@ function createAbilityHUD(h) {
         cd.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:#fff;text-shadow:0 0 5px #000;z-index:4;';
         box.appendChild(cd);
 
+        // M-HUD.1: Overlay del cooldown circular
+        const cdOverlay = document.createElement('div');
+        cdOverlay.id = 'ability-cd-overlay-' + hab.id;
+        cdOverlay.style.cssText = `
+            position: absolute;
+            inset: 0;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 3;
+            background: transparent;
+            display: none;
+        `;
+        box.appendChild(cdOverlay);
+
         // M8.9d: indicador de nivel individual (se mantiene)
         const levelInd = document.createElement('div');
         levelInd.id = 'ability-level-' + hab.id;
@@ -5768,15 +5782,41 @@ function updateAbilityHUD() {
         const vHabHUD = valoresHabilidadActual(hab.id);
         const manaHUD = vHabHUD ? vHabHUD.mana : 0;
         const sinMana = manaHUD > 0 && playerMana < manaHUD;
+        const cdOverlay = document.getElementById('ability-cd-overlay-' + hab.id);
         if (restante > 0) {
-            if (cd) cd.textContent = restante.toFixed(1) + 's';
-            box.style.opacity = '0.55';
+            // M-HUD.1: Overlay circular tipo LoL
+            if (cd) cd.textContent = restante.toFixed(1);
+            box.style.opacity = '1';
+            // Calcular el ángulo del sector oscuro: 0% restante = 360°
+            // oscuros (acaba de lanzarse). 100% restante = 0° oscuros
+            // (listo para usar).
+            const cdMax = vHabHUD ? (vHabHUD.cooldown || 1) : 1;
+            const porcentajeRestante = Math.min(1, restante / cdMax);
+            const gradosOscuros = porcentajeRestante * 360;
+            if (cdOverlay) {
+                cdOverlay.style.display = 'block';
+                cdOverlay.style.background = `conic-gradient(
+                from 0deg,
+                rgba(0, 0, 0, 0.78) 0deg,
+                rgba(0, 0, 0, 0.78) ${gradosOscuros}deg,
+                transparent ${gradosOscuros}deg,
+                transparent 360deg
+            )`;
+            }
         } else if (sinMana) {
             if (cd) cd.textContent = 'MP';
             box.style.opacity = '0.55';
+            if (cdOverlay) {
+                cdOverlay.style.display = 'none';
+                cdOverlay.style.background = 'transparent';
+            }
         } else {
             if (cd) cd.textContent = '';
             box.style.opacity = '1';
+            if (cdOverlay) {
+                cdOverlay.style.display = 'none';
+                cdOverlay.style.background = 'transparent';
+            }
         }
         // M8.9b: actualizar nivel individual
         const levelInd = document.getElementById('ability-level-' + hab.id);
