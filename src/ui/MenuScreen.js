@@ -266,7 +266,7 @@ export class MenuScreen {
             box-sizing: border-box;
         `;
 
-        const crearBotonInferior = (id, texto) => {
+        const crearBotonInferior = (id, texto, onClick) => {
             const btn = document.createElement('button');
             btn.id = id;
             btn.textContent = texto;
@@ -305,12 +305,13 @@ export class MenuScreen {
                 btn.style.boxShadow = '0 0 12px rgba(0, 170, 255, 0.3)';
             };
             btn.onclick = () => {
-                this.showToast('🔧 Próximamente');
+                if (onClick) onClick();
+                else this.showToast('🔧 Próximamente');
             };
             return btn;
         };
 
-        bottomBar.appendChild(crearBotonInferior('menu-guide-btn', t('menu.guide')));
+        bottomBar.appendChild(crearBotonInferior('menu-guide-btn', t('menu.guide'), () => this._mostrarModalGuia()));
         bottomBar.appendChild(crearBotonInferior('menu-options-btn', t('menu.options')));
         bottomBar.appendChild(crearBotonInferior('menu-patch-btn', t('menu.patch')));
 
@@ -759,6 +760,208 @@ export class MenuScreen {
             this.modal.parentNode.removeChild(this.modal);
         }
         this.modal = null;
+    }
+
+    // =========================================
+    // MODAL GUÍA DE CONTROLES
+    // =========================================
+    _mostrarModalGuia() {
+        const anterior = document.getElementById('menu-guide-modal');
+        if (anterior) anterior.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'menu-guide-modal';
+        modal.style.cssText = `
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #fff;
+            padding: 20px;
+        `;
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            position: relative;
+            background: linear-gradient(160deg, rgba(20,24,48,0.98), rgba(10,12,28,0.98));
+            border: 2px solid rgba(0, 170, 255, 0.5);
+            border-radius: 16px;
+            box-shadow: 0 0 60px rgba(0, 170, 255, 0.25), 0 20px 60px rgba(0,0,0,0.6);
+            padding: 30px 40px;
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+        `;
+
+        const title = document.createElement('div');
+        title.textContent = t('guide.title');
+        title.style.cssText = `
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(0, 170, 255, 0.6);
+            margin-bottom: 6px;
+            text-align: center;
+        `;
+        panel.appendChild(title);
+
+        const sub = document.createElement('div');
+        sub.textContent = t('guide.subtitle');
+        sub.style.cssText = `
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: #88aaff;
+            text-align: center;
+            margin-bottom: 24px;
+            opacity: 0.8;
+        `;
+        panel.appendChild(sub);
+
+        const crearSeccion = (tituloSeccion, filas) => {
+            const sec = document.createElement('div');
+            sec.style.cssText = `margin-bottom: 22px;`;
+
+            const secTitle = document.createElement('div');
+            secTitle.textContent = tituloSeccion;
+            secTitle.style.cssText = `
+                font-size: 14px;
+                font-weight: 700;
+                color: #88ddff;
+                letter-spacing: 2px;
+                margin-bottom: 10px;
+                padding-bottom: 6px;
+                border-bottom: 1px solid rgba(0, 170, 255, 0.3);
+            `;
+            sec.appendChild(secTitle);
+
+            filas.forEach(([key, desc]) => {
+                const row = document.createElement('div');
+                row.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 6px 8px;
+                    border-radius: 6px;
+                    transition: background 0.15s ease;
+                `;
+                row.onmouseenter = () => { row.style.background = 'rgba(0, 170, 255, 0.1)'; };
+                row.onmouseleave = () => { row.style.background = 'transparent'; };
+
+                const keyEl = document.createElement('div');
+                keyEl.textContent = key;
+                keyEl.style.cssText = `
+                    flex: 0 0 200px;
+                    font-size: 13px;
+                    color: #aaccff;
+                    font-weight: 600;
+                `;
+
+                const arrow = document.createElement('div');
+                arrow.textContent = '→';
+                arrow.style.cssText = `
+                    flex: 0 0 20px;
+                    color: #88aaff;
+                    opacity: 0.6;
+                `;
+
+                const descEl = document.createElement('div');
+                descEl.textContent = desc;
+                descEl.style.cssText = `
+                    flex: 1;
+                    font-size: 13px;
+                    color: #ddeeff;
+                `;
+
+                row.appendChild(keyEl);
+                row.appendChild(arrow);
+                row.appendChild(descEl);
+                sec.appendChild(row);
+            });
+
+            return sec;
+        };
+
+        panel.appendChild(crearSeccion(t('guide.section_movement'), [
+            [t('guide.move_right'), t('guide.move_right_desc')],
+            [t('guide.attack_left'), t('guide.attack_left_desc')],
+            [t('guide.recall'), t('guide.recall_desc')],
+        ]));
+
+        panel.appendChild(crearSeccion(t('guide.section_camera'), [
+            [t('guide.cam_y'), t('guide.cam_y_desc')],
+            [t('guide.cam_zoom'), t('guide.cam_zoom_desc')],
+            [t('guide.cam_edges'), t('guide.cam_edges_desc')],
+            [t('guide.cam_f11'), t('guide.cam_f11_desc')],
+        ]));
+
+        panel.appendChild(crearSeccion(t('guide.section_abilities'), [
+            [t('guide.hab_q'), t('guide.hab_q_desc')],
+            [t('guide.hab_w'), t('guide.hab_w_desc')],
+            [t('guide.hab_e'), t('guide.hab_e_desc')],
+            [t('guide.hab_r'), t('guide.hab_r_desc')],
+        ]));
+
+        panel.appendChild(crearSeccion(t('guide.section_shop'), [
+            [t('guide.shop_open'), t('guide.shop_open_desc')],
+            [t('guide.potion'), t('guide.potion_desc')],
+            [t('guide.upgrade'), t('guide.upgrade_desc')],
+            [t('guide.potion_hp_key'), t('guide.potion_hp_key_desc')],
+            [t('guide.potion_mp_key'), t('guide.potion_mp_key_desc')],
+        ]));
+
+        panel.appendChild(crearSeccion(t('guide.section_interface'), [
+            [t('guide.tab'), t('guide.tab_desc')],
+            [t('guide.escape'), t('guide.escape_desc')],
+            [t('guide.axie_core'), t('guide.axie_core_desc')],
+        ]));
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 68, 68, 0.9);
+            border: 2px solid rgba(255, 200, 200, 0.9);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+        `;
+        closeBtn.onclick = () => this._cerrarModalGuia();
+        panel.appendChild(closeBtn);
+
+        modal.appendChild(panel);
+        document.body.appendChild(modal);
+
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this._cerrarModalGuia();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        modal._escHandler = escHandler;
+    }
+
+    _cerrarModalGuia() {
+        const modal = document.getElementById('menu-guide-modal');
+        if (modal) {
+            if (modal._escHandler) {
+                document.removeEventListener('keydown', modal._escHandler);
+            }
+            modal.remove();
+        }
     }
 
     // =========================================
