@@ -5709,6 +5709,18 @@ function createAbilityHUD(h) {
         levelInd.textContent = nivelesHabilidad[hab.tecla.toLowerCase()] ?? 0;
         box.appendChild(levelInd);
 
+        // M-HUD.2: Tooltip de hover con descripción y stats del nivel actual
+        box.style.pointerEvents = 'auto';
+        box.addEventListener('mouseenter', (e) => {
+            if (typeof mostrarTooltipHabilidad === 'function') {
+                mostrarTooltipHabilidad(hab.id, box);
+            }
+        });
+        box.addEventListener('mouseleave', () => {
+            const tip = document.getElementById('ability-tooltip');
+            if (tip) tip.style.display = 'none';
+        });
+
         habilidadCajas[hab.id] = box;
         abilityHUD.appendChild(box);
     }
@@ -5769,6 +5781,99 @@ function pintarTecla(box, hab) {
         <div style="font-size:18px;font-weight:bold;color:${hab.color};">${hab.tecla}</div>
         <div style="font-size:9px;opacity:0.8;">${hab.nombre}</div>
     </div>`;
+}
+
+// M-HUD.2: Asegurar tooltip de habilidades
+function asegurarTooltipHabilidad() {
+    if (document.getElementById('ability-tooltip')) return;
+    const tip = document.createElement('div');
+    tip.id = 'ability-tooltip';
+    tip.style.cssText = `
+        position: fixed;
+        display: none;
+        z-index: 100000;
+        left: 28%;
+        bottom: 205px;
+        transform: translateX(-50%);
+        right: auto;
+        max-width: 280px;
+        min-width: 260px;
+        padding: 8px 10px;
+        background: linear-gradient(135deg, rgba(5,5,15,1), rgba(10,15,35,1));
+        border: 2px solid rgba(0,170,255,0.6);
+        border-radius: 8px;
+        color: #ddeeff;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 11px;
+        line-height: 1.35;
+        box-shadow: 0 8px 32px rgba(0,0,0,1), 0 0 24px rgba(0,170,255,0.5);
+        pointer-events: none;
+    `;
+    document.body.appendChild(tip);
+}
+
+// M-HUD.2: Mostrar tooltip de habilidad con descripción y stats del nivel actual
+function mostrarTooltipHabilidad(habId, box) {
+    asegurarTooltipHabilidad();
+    const tip = document.getElementById('ability-tooltip');
+    if (!tip) return;
+    const habBase = getHabilidad(habId);
+    if (!habBase) return;
+    const nivel = nivelesHabilidad[habBase.tecla.toLowerCase()] ?? 0;
+    const habNivel = getHabilidadEnNivel(habId, Math.max(1, nivel));
+    const v = habNivel || habBase;
+    const mana = v.mana !== undefined ? v.mana : '-';
+    const cd = v.cooldown !== undefined ? v.cooldown : '-';
+    const dano = v.dano !== undefined ? v.dano : '-';
+    const rango = v.rango !== undefined ? v.rango : '-';
+    const radio = v.radio !== undefined ? v.radio : '-';
+    const descripcion = habBase.descripcion || 'Sin descripción.';
+    // PASO 2: acortar descripción a primera frase
+    const descCorta = descripcion.split('.')[0] + '.';
+    // PASO 2: comparativa vacía
+    const comparativa = '';
+    let html = `
+        <div style="color:${habBase.color};font-weight:bold;font-size:12px;margin-bottom:3px;">
+            ${habBase.tecla} ${habBase.nombre} <span style="color:#88aacc;font-weight:normal;font-size:10px;">Nv.${nivel}</span>
+        </div>
+        <div style="color:#ddeeff;font-size:10px;margin-bottom:5px;">${descCorta}</div>
+        <div style="color:#88aacc;font-size:11px;border-top:1px solid rgba(0,170,255,0.2);padding-top:4px;">
+            <div>Mana: <b style="color:#fff;">${mana}</b></div>
+            <div>Cooldown: <b style="color:#fff;">${cd}s</b></div>
+            <div>Daño: <b style="color:#fff;">${dano}</b></div>
+            <div>Rango: <b style="color:#fff;">${rango}</b></div>
+    `;
+    if (radio !== '-') {
+        html += `<div>Radio: <b style="color:#fff;">${radio}</b></div>`;
+    }
+    if (v.bonus) {
+        html += `<div style="margin-top:4px;">Bonus:`;
+        for (const [k, val] of Object.entries(v.bonus)) {
+            html += `<div style="margin-left:8px;">${k}: <b style="color:#fff;">${(val*100).toFixed(0)}%</b></div>`;
+        }
+        html += `</div>`;
+    }
+    html += `</div>`;
+    // M-HUD.2-fix6: ajustar altura del tooltip según los "+"
+    // Si hay algún botón "+" visible, el tooltip va más arriba.
+    // Si no hay ninguno visible, el tooltip baja cerca del HUD.
+    const plusRowDinamico = document.getElementById('ability-plus-row');
+    let hayPlusVisible = false;
+    if (plusRowDinamico) {
+        const botonesPlus = plusRowDinamico.querySelectorAll('.ability-plus-row-btn');
+        for (const btn of botonesPlus) {
+            if (btn.style.visibility === 'visible') {
+                hayPlusVisible = true;
+                break;
+            }
+        }
+    }
+    tip.style.bottom = hayPlusVisible ? '205px' : '145px';
+    tip.innerHTML = html;
+    // M-HUD.2-fix5: posición controlada 100% por CSS.
+    // El tooltip tiene left: 42%, bottom: 190px, transform: translateX(-50%).
+    tip.style.display = 'block';
+    tip.style.opacity = '1';
 }
 
 // Refresca recargas y estado de maná de TODAS las habilidades del panel.

@@ -24,6 +24,7 @@ export const HABILIDADES_POR_AXIE = {
         q: {
             tecla: 'Q',
             nombre: 'Plasma Blast',
+            descripcion: 'Dispara un proyectil de plasma hacia el enemigo objetivo.',
             icono: 'assets/habilidades/bing_q_plasma_blast.jpg',
             color: '#0ff',
             tipo: 'target',
@@ -36,6 +37,7 @@ export const HABILIDADES_POR_AXIE = {
         w: {
             tecla: 'W',
             nombre: 'Thruster Dash',
+            descripcion: 'Salta hacia la zona apuntada y hace daño en área al aterrizar.',
             icono: 'assets/habilidades/bing_w_thruster_dash.jpg',
             color: '#ff6600',
             tipo: 'area',
@@ -48,6 +50,7 @@ export const HABILIDADES_POR_AXIE = {
         e: {
             tecla: 'E',
             nombre: 'Overclock',
+            descripcion: 'Activa un sobrecargador que aumenta la velocidad de ataque y el daño.',
             icono: 'assets/habilidades/bing_e_overclock.jpg',
             color: '#7cc8ff',
             tipo: 'pasiva',
@@ -60,6 +63,7 @@ export const HABILIDADES_POR_AXIE = {
         r: {
             tecla: 'R',
             nombre: 'Inferno Cannon',
+            descripcion: 'Canaliza un cañón infernal que dispara 8 ráfagas en cono durante 2 segundos.',
             icono: 'assets/habilidades/bing_r_inferno_cannon.jpg',
             color: '#ff4400',
             tipo: 'ultimate',
@@ -75,6 +79,7 @@ export const HABILIDADES_POR_AXIE = {
         q: {
             tecla: 'Q',
             nombre: 'Flash Slash',
+            descripcion: 'Se lanza contra el objetivo provocando un corte rápido.',
             icono: 'assets/habilidades/kotaro_q_flash_slash.jpg',
             color: '#88ccff',
             tipo: 'target',
@@ -87,6 +92,7 @@ export const HABILIDADES_POR_AXIE = {
         w: {
             tecla: 'W',
             nombre: 'Blade Guard',
+            descripcion: 'Despliega una guardia de cuchillas que aturde a enemigos cercanos.',
             icono: 'assets/habilidades/kotaro_w_blade_guard.jpg',
             color: '#ffcc88',
             tipo: 'area',
@@ -99,6 +105,7 @@ export const HABILIDADES_POR_AXIE = {
         e: {
             tecla: 'E',
             nombre: 'Dance Thousand',
+            descripcion: 'Bailar de mil espadas aumenta daño y probabilidad de crítico.',
             icono: 'assets/habilidades/kotaro_e_dance.jpg',
             color: '#ff88cc',
             tipo: 'pasiva',
@@ -111,6 +118,7 @@ export const HABILIDADES_POR_AXIE = {
         r: {
             tecla: 'R',
             nombre: 'Demon Execution',
+            descripcion: 'Ejecución demoníaca: golpe mortal de largo alcance.',
             icono: 'assets/habilidades/kotaro_r_demon_execution.jpg',
             color: '#ff4444',
             tipo: 'ultimate',
