@@ -30,7 +30,7 @@ export class MenuScreen {
         this.element.style.cssText = `
             position: fixed;
             inset: 0;
-            background: linear-gradient(rgba(10, 15, 30, 0.75), rgba(5, 5, 15, 0.9)), url('assets/menu-background.jpg') center/cover no-repeat;
+            background: #0a0a15;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -39,11 +39,64 @@ export class MenuScreen {
             color: #fff;
             z-index: 9999;
             user-select: none;
+            overflow: hidden;
         `;
+
+        // Video de fondo en loop con zoom (para tapar la marca de agua)
+        const video = document.createElement('video');
+        video.id = 'menu-bg-video';
+        video.autoplay = true;
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1.15);
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: cover;
+            z-index: 0;
+            opacity: 0.85;
+        `;
+        const source = document.createElement('source');
+        source.src = (import.meta.env.BASE_URL || '/') + 'assets/menu/menu-background.mp4';
+        source.type = 'video/mp4';
+        video.appendChild(source);
+        video.addEventListener('loadeddata', () => {
+            console.log('✅ Video de fondo cargado: ' + video.src);
+        });
+        video.addEventListener('error', (e) => {
+            console.error('❌ Error cargando video:', video.error, e);
+        });
+        video.addEventListener('canplaythrough', () => {
+            console.log('▶️ Video listo para reproducir');
+            video.play().catch(err => console.warn('⚠️ Autoplay bloqueado:', err.message));
+        });
+        this.element.appendChild(video);
+
+        // Overlay oscuro semitransparente para legibilidad
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                rgba(10, 15, 30, 0.35) 0%,
+                rgba(5, 5, 15, 0.5) 100%
+            );
+            z-index: 1;
+            pointer-events: none;
+        `;
+        this.element.appendChild(overlay);
 
         this.element.innerHTML = `
             <!-- BOTÓN PLAY NOW -->
             <button id="menu-play-btn" style="
+                position: relative;
+                z-index: 3;
                 padding: 22px 80px;
                 font-size: 28px;
                 font-weight: bold;
@@ -68,6 +121,7 @@ export class MenuScreen {
                 display: flex;
                 gap: 16px;
                 align-items: center;
+                z-index: 3;
             ">
                 <button id="menu-guide-btn" style="
                     padding: 10px 20px;
