@@ -7,6 +7,7 @@
 //      (solo muestra los Axies habilitados en axies.js)
 
 import { getAllAxies, isAxieHabilitado } from '../config/axies.js';
+import { getPartesAxie, getRazasInfo } from '../config/axie-core.js';
 import { AxiePreviewer } from './AxiePreviewer.js';
 import { audio } from '../audio/AudioManager.js';
 import { t, setIdioma, getIdioma } from '../config/idiomas.js';
@@ -527,7 +528,7 @@ export class MenuScreen {
         // Titulo
         const title = document.createElement('div');
         title.id = 'axie-modal-title';
-        title.textContent = 'ELIGE TU AXIE';
+        title.textContent = t('axie.select_title');
         title.style.cssText = `
             text-align: center;
             font-size: 22px;
@@ -540,7 +541,7 @@ export class MenuScreen {
         panel.appendChild(title);
 
         const sub = document.createElement('div');
-        sub.textContent = 'Duelo 1 vs 1';
+        sub.textContent = t('axie.subtitle');
         sub.style.cssText = `
             text-align: center;
             font-size: 12px;
@@ -553,92 +554,130 @@ export class MenuScreen {
         panel.appendChild(sub);
 
         // =========================================
-        // CUERPO ESTILO LoL: lista | visor 3D | info
+        // CUERPO ESTILO LoL CLÁSICO
         // =========================================
-        const row = document.createElement('div');
-        row.style.cssText = `display:flex;gap:18px;align-items:stretch;`;
 
-        // --- Izquierda: lista de Axies ---
-        const list = document.createElement('div');
-        list.id = 'axie-list';
-        list.style.cssText = `display:flex;flex-direction:column;gap:10px;width:190px;flex:0 0 auto;`;
+        // Contenedor principal: fila con preview + stats
+        const mainRow = document.createElement('div');
+        mainRow.style.cssText = `
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        `;
 
-        // --- Centro: visor 3D + nombre + stats ---
-        const center = document.createElement('div');
-        center.style.cssText = `flex:1 1 auto;min-width:300px;display:flex;flex-direction:column;align-items:center;`;
-
-        const stage = document.createElement('div');
-        stage.style.cssText = `
+        // --- IZQUIERDA: Preview 3D grande ---
+        const previewStage = document.createElement('div');
+        previewStage.style.cssText = `
             position: relative;
-            width: 100%;
-            max-width: 420px;
-            height: 300px;
+            width: 420px;
+            height: 360px;
             border-radius: 14px;
-            background: radial-gradient(circle at 50% 35%, rgba(68,255,136,0.12), rgba(10,14,30,0.85) 70%);
-            border: 1px solid rgba(255,255,255,0.09);
+            background: radial-gradient(circle at 50% 40%, rgba(68,255,136,0.15), rgba(10,14,30,0.9) 70%);
+            border: 2px solid rgba(0, 170, 255, 0.4);
             overflow: hidden;
-            box-shadow: inset 0 0 60px rgba(0,0,0,0.55);
+            box-shadow: 0 0 40px rgba(0, 170, 255, 0.25), inset 0 0 60px rgba(0,0,0,0.55);
         `;
 
         const preview = document.createElement('canvas');
         preview.id = 'axie-preview-canvas';
         preview.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;display:block;`;
         preview.width = 420;
-        preview.height = 300;
-        stage.appendChild(preview);
-        center.appendChild(stage);
+        preview.height = 360;
+        previewStage.appendChild(preview);
 
-        const bigName = document.createElement('div');
-        bigName.id = 'axie-modal-name';
-        bigName.style.cssText = `
-            margin-top: 12px;
-            font-size: 24px;
+        // Guardar referencias para uso en selectAxieInModal
+        this.previewCanvas = preview;
+        this.previewStage = previewStage;
+
+        // Nombre encima de la preview
+        const nameOverlay = document.createElement('div');
+        nameOverlay.id = 'axie-modal-name';
+        nameOverlay.style.cssText = `
+            position: absolute;
+            top: 14px;
+            left: 20px;
+            font-size: 28px;
             font-weight: 900;
-            letter-spacing: 2px;
-            color: #ffffff;
-            text-shadow: 0 0 18px rgba(68,255,136,0.35);
-            text-align: center;
+            letter-spacing: 3px;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(68,255,136,0.6), 0 4px 8px rgba(0,0,0,0.9);
+            text-transform: uppercase;
+            z-index: 2;
         `;
-        center.appendChild(bigName);
+        nameOverlay.textContent = 'BING';
+        previewStage.appendChild(nameOverlay);
 
-        const roleLine = document.createElement('div');
-        roleLine.id = 'axie-modal-role';
-        roleLine.style.cssText = `
-            font-size: 12px;
-            letter-spacing: 2px;
+        // Rol debajo del nombre
+        const roleOverlay = document.createElement('div');
+        roleOverlay.id = 'axie-modal-role';
+        roleOverlay.style.cssText = `
+            position: absolute;
+            top: 48px;
+            left: 20px;
+            font-size: 11px;
+            letter-spacing: 3px;
             color: #88ddff;
             opacity: 0.8;
             text-transform: uppercase;
-            margin-bottom: 10px;
-            text-align: center;
+            z-index: 2;
         `;
-        center.appendChild(roleLine);
+        roleOverlay.textContent = 'EL LÍDER FEROZ';
+        previewStage.appendChild(roleOverlay);
 
-        const statsBox = document.createElement('div');
-        statsBox.id = 'axie-modal-stats';
-        statsBox.style.cssText = `width:100%;max-width:420px;display:flex;flex-direction:column;gap:6px;`;
-        center.appendChild(statsBox);
+        mainRow.appendChild(previewStage);
 
-        // --- Derecha: habilidades Q/W/E/R ---
-        const skills = document.createElement('div');
-        skills.id = 'axie-modal-skills';
-        skills.style.cssText = `display:flex;flex-direction:column;gap:8px;width:210px;flex:0 0 auto;`;
+        // --- DERECHA: Panel de stats grande ---
+        const statsPanel = document.createElement('div');
+        statsPanel.id = 'axie-modal-stats';
+        statsPanel.style.cssText = `
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 16px;
+            background: linear-gradient(135deg, rgba(0, 170, 255, 0.08), rgba(20, 20, 40, 0.5));
+            border: 1px solid rgba(0, 170, 255, 0.25);
+            border-radius: 12px;
+        `;
+        mainRow.appendChild(statsPanel);
 
-        row.appendChild(list);
-        row.appendChild(center);
-        row.appendChild(skills);
-        panel.appendChild(row);
+        panel.appendChild(mainRow);
 
-        const axies = getAllAxies();   // los 7: los no habilitados salen bloqueados
+        // --- ABAJO: Grid de iconos de Axies ---
+        const axieGrid = document.createElement('div');
+        axieGrid.id = 'axie-list';
+        axieGrid.style.cssText = `
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        `;
+        panel.appendChild(axieGrid);
+
+        // --- ABAJO: Habilidades en fila horizontal ---
+        const skillsRow = document.createElement('div');
+        skillsRow.id = 'axie-modal-skills';
+        skillsRow.style.cssText = `
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+        `;
+        panel.appendChild(skillsRow);
+
+        // Poblar el grid de Axies
+        const axies = getAllAxies();
         const primerHabilitadoId = (axies.find(a => isAxieHabilitado(a.id)) || {}).id || null;
         this.selectedAxie = null;
 
-        axies.forEach((axie, index) => {
+        axies.forEach((axie) => {
             const card = this.createAxieCard(axie, axie.id === primerHabilitadoId, !isAxieHabilitado(axie.id));
-            list.appendChild(card);
+            axieGrid.appendChild(card);
         });
 
-        // Visor 3D (renderer propio, se destruye al cerrar)
+        // Iniciar el visor 3D
         this.previewer = new AxiePreviewer(preview, { baseUrl: this._baseUrl || './' });
         this._onResize = () => {
             if (!this.previewer) return;
@@ -654,7 +693,7 @@ export class MenuScreen {
         // Boton jugar
         const playBtn = document.createElement('button');
         playBtn.className = 'menu-play-btn';
-        playBtn.textContent = 'JUGAR';
+        playBtn.textContent = t('axie.start_match');
         playBtn.style.cssText = `
             display: block;
             width: 100%;
@@ -739,46 +778,128 @@ export class MenuScreen {
             nameEl.style.color = axie.color || '#ffffff';
             nameEl.style.textShadow = `0 0 18px ${axie.color || '#44ff88'}55`;
         }
-        if (roleEl) roleEl.textContent = (axie.rol || axie.id).toUpperCase();
+        if (roleEl) {
+            // Mostrar la DESCRIPCIÓN corta del Axie, no el id
+            roleEl.textContent = axie.descripcion ? axie.descripcion.toUpperCase() : '';
+        }
 
-        // Stats en barras
+        // Fondo splash (imagen JPG del Axie)
+        const previewStage = this.previewStage;
+        if (!previewStage) return; // seguridad: si no existe, salir
+        if (previewStage) {
+            // Quitar fondo splash anterior
+            const old = previewStage.querySelector('.axie-splash-bg');
+            if (old) old.remove();
+
+            const splashBg = document.createElement('div');
+            splashBg.className = 'axie-splash-bg';
+            splashBg.style.cssText = `
+                position: absolute;
+                inset: 0;
+                background-image: url('${import.meta.env.BASE_URL}assets/axies/splash/${axie.id}.jpg');
+                background-size: cover;
+                background-position: center;
+                opacity: 0.35;
+                z-index: 0;
+                pointer-events: none;
+                border-radius: 12px;
+                transition: opacity 0.3s ease;
+            `;
+            // Insertarlo como primer hijo (detrás del canvas)
+            previewStage.insertBefore(splashBg, previewStage.firstChild);
+        }
+        // Asegurar que el canvas esté encima
+        if (this.previewCanvas) this.previewCanvas.style.zIndex = '1';
+
+        // Stats en panel lateral (nuevo formato: icono + label + barra + valor)
         if (statsEl) {
             statsEl.innerHTML = '';
             const s = axie.stats || {};
             const rows = [
-                ['VIDA', s.vida || 0, 200, '#44ff88'],
-                ['ATAQUE', s.ataque || 0, 40, '#ff8844'],
-                ['DEFENSA', s.defensa || 0, 40, '#44aaff'],
-                ['VELOCIDAD', s.velocidad || 0, 2, '#ffdd44'],
+                ['❤️', t('axie.stats_hp'),    s.vida || 0, 200, '#ff4466'],
+                ['⚔️', t('axie.stats_atk'),   s.ataque || 0, 40, '#ff8844'],
+                ['🛡️', t('axie.stats_def'),   s.defensa || 0, 40, '#44aaff'],
+                ['⚡', t('axie.stats_spd'),   s.velocidad || 0, 2, '#ffdd44'],
+                ['🎯', t('axie.stats_range'), 4.0, 10, '#ff66aa'],
+                ['⏱️', t('axie.stats_as'),    0.7, 2, '#aa88ff'],
+                ['💧', t('axie.stats_mana'),  200, 500, '#44ddff'],
             ];
-            rows.forEach(([label, value, max, color]) => {
-                const r = document.createElement('div');
-                r.style.cssText = `display:flex;align-items:center;gap:8px;`;
-                const l = document.createElement('div');
-                l.textContent = label;
-                l.style.cssText = `width:78px;font-size:10px;letter-spacing:1px;color:#9aa8c8;`;
+            rows.forEach(([icon, label, value, max, color]) => {
+                const row = document.createElement('div');
+                row.style.cssText = `display:flex;align-items:center;gap:8px;`;
+                const iconEl = document.createElement('div');
+                iconEl.textContent = icon;
+                iconEl.style.cssText = `font-size:14px;width:20px;`;
+                const labelEl = document.createElement('div');
+                labelEl.textContent = label;
+                labelEl.style.cssText = `font-size:10px;letter-spacing:1px;color:#9aa8c8;width:70px;`;
                 const track = document.createElement('div');
-                track.style.cssText = `flex:1;height:8px;background:rgba(255,255,255,0.09);border-radius:5px;overflow:hidden;`;
+                track.style.cssText = `flex:1;height:6px;background:rgba(255,255,255,0.09);border-radius:3px;overflow:hidden;`;
                 const fill = document.createElement('div');
-                fill.style.cssText = `width:${Math.min(100, (value / max) * 100)}%;height:100%;background:${color};border-radius:5px;transition:width 0.35s ease;`;
+                fill.style.cssText = `width:${Math.min(100, (value / max) * 100)}%;height:100%;background:${color};border-radius:3px;transition:width 0.35s ease;`;
                 track.appendChild(fill);
-                const v = document.createElement('div');
-                v.textContent = value;
-                v.style.cssText = `width:32px;font-size:11px;text-align:right;color:#dfe6f5;`;
-                r.appendChild(l); r.appendChild(track); r.appendChild(v);
-                statsEl.appendChild(r);
+                const valueEl = document.createElement('div');
+                valueEl.textContent = value;
+                valueEl.style.cssText = `font-size:12px;font-weight:bold;color:#dfe6f5;width:36px;text-align:right;`;
+                row.appendChild(iconEl); row.appendChild(labelEl);
+                row.appendChild(track); row.appendChild(valueEl);
+                statsEl.appendChild(row);
             });
         }
 
-        // Habilidades Q/W/E/R + pasiva
+        // Habilidades Q/W/E/R + pasiva - USAR HABILIDADES REALES
         if (skillsEl) {
             skillsEl.innerHTML = '';
-            const h = axie.habilidades || {};
-            [['Q', h.q], ['W', h.w], ['E', h.e], ['R', h.r || h.definitiva]].forEach(([key, hab]) => {
-                if (hab) skillsEl.appendChild(this.createSkillRow(key, hab));
-            });
-            const pass = h.pasiva;
-            if (pass && pass.nombre) skillsEl.appendChild(this.createSkillRow('P', pass));
+            
+            // Importar las habilidades reales del Axie actual
+            // getHabilidades() devuelve las Q/W/E/R del Axie actualmente seleccionado
+            // pero como queremos las del Axie CLICKEADO (no el seleccionado del juego),
+            // usamos HABILIDADES_POR_AXIE directamente.
+            const habsDelAxie = window.__debug?.HABILIDADES_POR_AXIE?.[axie.id] 
+                || (window.HABILIDADES_POR_AXIE && window.HABILIDADES_POR_AXIE[axie.id])
+                || null;
+            
+            if (habsDelAxie) {
+                // Mostrar Q, W, E, R (4 habilidades con iconos reales)
+                ['q', 'w', 'e', 'r'].forEach(key => {
+                    const hab = habsDelAxie[key];
+                    if (hab) {
+                        skillsEl.appendChild(this.createSkillRow(key.toUpperCase(), hab));
+                    }
+                });
+            } else {
+                // Fallback: mostrar lo que haya en axies.js (emojis)
+                const h = axie.habilidades || {};
+                if (h.activa) skillsEl.appendChild(this.createSkillRow('Q', h.activa));
+                if (h.activa) skillsEl.appendChild(this.createSkillRow('W', h.activa));
+                if (h.activa) skillsEl.appendChild(this.createSkillRow('E', h.activa));
+                if (h.definitiva) skillsEl.appendChild(this.createSkillRow('R', h.definitiva));
+                if (h.pasiva) skillsEl.appendChild(this.createSkillRow('P', h.pasiva));
+            }
+        }
+
+        // Axie Core: 5 razas del Axie
+        const coreEl = document.getElementById('axie-modal-core');
+        if (coreEl) {
+            const partes = getPartesAxie(axie.id);
+            const razas = getRazasInfo();
+            if (partes && razas) {
+                let coreHtml = `<div style="font-size:11px;color:#88aaff;letter-spacing:2px;margin-bottom:6px;">${t('axie.axie_core')}:</div>`;
+                coreHtml += '<div style="display:flex;gap:10px;align-items:center;justify-content:center;">';
+                const casillas = ['tipo', 'boca', 'orejas', 'espalda', 'cola'];
+                for (const c of casillas) {
+                    const razaId = partes[c];
+                    const raza = razas[razaId];
+                    if (raza) {
+                        coreHtml += `<div style="text-align:center;">
+                            <div style="font-size:22px;filter:drop-shadow(0 0 6px ${raza.color}88);">${raza.emoji}</div>
+                            <div style="font-size:9px;color:${raza.color};font-weight:bold;">${raza.nombre}</div>
+                        </div>`;
+                    }
+                }
+                coreHtml += '</div>';
+                coreEl.innerHTML = coreHtml;
+            }
         }
 
         // Cargar modelo 3D + arma (token evita cargas cruzadas)
@@ -788,165 +909,149 @@ export class MenuScreen {
             const arma = axie.armaPath || axie.arma;
             this.previewer.load(modelo, arma, axie.escala || 1.15).then(() => {
                 if (token !== this.previewToken) return;
+                if (this.previewer.controls) this.previewer.controls.enabled = true;
             });
         }
     }
 
     createSkillRow(key, hab) {
-        const row = document.createElement('div');
         const isKey = /^[QWERP]$/.test(key);
         const border = isKey ? 'rgba(68,255,136,0.35)' : 'rgba(170,140,255,0.35)';
-        row.style.cssText = `
+        const bg = isKey ? 'rgba(68,255,136,0.15)' : 'rgba(170,140,255,0.15)';
+        const color = isKey ? '#44ff88' : '#bb99ff';
+
+        const box = document.createElement('div');
+        box.style.cssText = `
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            background: ${bg};
+            border: 1px solid ${border};
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 9px;
-            padding: 7px 9px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid ${border};
-            border-radius: 9px;
+            justify-content: center;
+            gap: 4px;
+            cursor: default;
+            transition: all 0.2s ease;
         `;
-        const keyBox = document.createElement('div');
-        keyBox.textContent = key;
-        keyBox.style.cssText = `
-            width: 24px; height: 24px;
-            flex: 0 0 auto;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 6px;
-            font-size: 11px; font-weight: 800;
-            background: ${isKey ? 'rgba(68,255,136,0.15)' : 'rgba(170,140,255,0.15)'};
-            color: ${isKey ? '#44ff88' : '#bb99ff'};
-            border: 1px solid ${border};
+
+        const keyEl = document.createElement('div');
+        keyEl.textContent = key;
+        keyEl.style.cssText = `
+            font-size: 16px;
+            font-weight: 900;
+            color: ${color};
+            text-shadow: 0 0 8px ${color}88;
         `;
-        const txt = document.createElement('div');
-        txt.style.cssText = `flex:1;min-width:0;`;
-        const n = document.createElement('div');
-        n.textContent = (hab.icono ? hab.icono + ' ' : '') + (hab.nombre || '');
-        n.style.cssText = `font-size:12px;font-weight:700;color:#e8eefc;`;
-        txt.appendChild(n);
-        if (hab.descripcion) {
-            const d = document.createElement('div');
-            d.textContent = hab.descripcion;
-            d.style.cssText = `font-size:10px;color:#9aa8c8;line-height:1.3;margin-top:1px;`;
-            txt.appendChild(d);
+
+        const iconContainer = document.createElement('div');
+        iconContainer.style.cssText = `width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;`;
+        
+        const iconoSrc = hab.icono || '';
+        if (iconoSrc && (iconoSrc.startsWith('assets/') || iconoSrc.startsWith('/') || iconoSrc.includes('.jpg') || iconoSrc.includes('.png'))) {
+            // Es una ruta de imagen
+            const img = document.createElement('img');
+            const base = import.meta.env.BASE_URL || '/';
+            const cleanPath = iconoSrc.startsWith('/') ? iconoSrc.slice(1) : iconoSrc;
+            const cleanBase = base.endsWith('/') ? base : base + '/';
+            img.src = cleanBase + cleanPath;
+            img.style.cssText = `width: 100%; height: 100%; object-fit: cover; border-radius: 6px;`;
+            img.onerror = () => { img.remove(); iconContainer.textContent = '🎯'; iconContainer.style.fontSize = '20px'; };
+            iconContainer.appendChild(img);
+        } else {
+            // Es un emoji
+            iconContainer.textContent = iconoSrc || '🎯';
+            iconContainer.style.fontSize = '20px';
         }
-        row.appendChild(keyBox);
-        row.appendChild(txt);
-        return row;
+
+        box.appendChild(keyEl);
+        box.appendChild(iconContainer);
+
+        // Tooltip on hover
+        if (hab.descripcion) {
+            box.title = hab.descripcion;
+        }
+
+        return box;
     }
 
     createAxieCard(axie, isDefault = false, isLocked = false) {
         const card = document.createElement('div');
-        card.className = 'menu-card';
-        if (isDefault) {
-            card.classList.add('selected');
-            this.selectedAxie = axie.id;
-        }
+        card.className = 'axie-card';
+        if (isDefault) card.classList.add('selected');
         card.dataset.axieId = axie.id;
 
         const emojis = {
-            bing: '\uD83D\uDC3B',
-            kibo: '\uD83D\uDC31',
-            kotaro: '\uD83E\uDD8A',
-            paladill: '\uD83D\uDC09',
-            pomodoro: '\uD83C\uDF45',
-            tripp: '\uD83E\uDD84',
-            xia: '\u2B50'
+            bing: '\uD83D\uDC3B', kibo: '\uD83D\uDC31', kotaro: '\uD83E\uDD8A',
+            paladill: '\uD83D\uDC09', pomodoro: '\uD83C\uDF45', tripp: '\uD83E\uDD84', xia: '\u2B50'
         };
+        const iconEmoji = emojis[axie.id] || '\uD83D\uDC3E';
 
-        const iconEmoji = emojis[axie.id] || axie.habilidades?.pasiva?.icono || '\uD83D\uDC3E';
-
-        // Fila horizontal estilo LoL: miniatura | nombre+rol
         card.style.cssText = `
+            position: relative;
+            width: 76px;
+            height: 76px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 9px 11px;
-            background: ${isDefault ? 'rgba(255,220,68,0.10)' : 'rgba(255,255,255,0.06)'};
-            border: 2px solid ${isDefault ? '#ffdd44' : 'rgba(255,255,255,0.15)'};
-            border-radius: 11px;
-            cursor: pointer;
-            text-align: left;
-            color: #fff;
-            transition: all 0.22s ease;
-            transform-origin: center center;
-        `;
-
-        // Miniatura estilo LoL: emoji sobre fondo con el color del Axie
-        const thumb = document.createElement('div');
-        thumb.style.cssText = `
-            width: 46px; height: 46px;
-            flex: 0 0 auto;
-            border-radius: 9px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 26px;
-            background: radial-gradient(circle at 50% 35%, ${axie.color || '#44ff88'}44, rgba(10,14,30,0.9) 75%);
-            border: 1px solid ${axie.color || '#44ff88'}66;
-            box-shadow: 0 0 14px ${axie.color || '#44ff88'}33;
-        `;
-        thumb.textContent = iconEmoji;
-
-        const info = document.createElement('div');
-        info.style.cssText = `flex:1;min-width:0;`;
-
-        const name = document.createElement('div');
-        name.style.cssText = `
-            font-size: 14px;
-            font-weight: bold;
-            color: ${axie.color || '#ffffff'};
-            white-space: nowrap;
+            justify-content: center;
+            font-size: 34px;
+            cursor: ${isLocked ? 'not-allowed' : 'pointer'};
+            background: radial-gradient(circle at 50% 35%, ${axie.color || '#44ff88'}55, rgba(10,14,30,0.9) 75%);
+            border: 2px solid ${isDefault ? '#ffdd44' : (axie.color || '#44ff88') + '88'};
+            box-shadow: ${isDefault ? `0 0 24px ${axie.color || '#44ff88'}aa` : `0 0 10px ${axie.color || '#44ff88'}44`};
+            transition: all 0.25s ease;
+            opacity: ${isLocked ? 0.4 : 1};
             overflow: hidden;
-            text-overflow: ellipsis;
         `;
-        name.textContent = axie.nombre;
+        card.textContent = iconEmoji;
 
-        const type = document.createElement('div');
-        type.style.cssText = `font-size: 10px; color: #88aaff; opacity: 0.7; letter-spacing: 1px;`;
-        type.textContent = (axie.rol || axie.id).toUpperCase();
+        // Nombre debajo del icono
+        const nameLabel = document.createElement('div');
+        nameLabel.style.cssText = `
+            position: absolute;
+            bottom: 4px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9px;
+            font-weight: bold;
+            color: ${axie.color || '#fff'};
+            text-shadow: 0 0 4px rgba(0,0,0,0.9);
+            letter-spacing: 1px;
+        `;
+        nameLabel.textContent = axie.nombre.toUpperCase();
+        card.appendChild(nameLabel);
 
-        info.appendChild(name);
-        info.appendChild(type);
-        card.appendChild(thumb);
-        card.appendChild(info);
-
-        // Axie bloqueado: tarjeta en gris, candado y sin seleccion
         if (isLocked) {
-            card.style.background = 'rgba(255,255,255,0.03)';
-            card.style.borderColor = 'rgba(255,255,255,0.08)';
-            card.style.cursor = 'not-allowed';
-            card.style.opacity = '0.45';
-            card.style.filter = 'grayscale(1)';
-            name.style.color = '#7c8399';
-            type.textContent = 'BLOQUEADO';
-            type.style.color = '#8a8f9e';
-
-            const candado = document.createElement('div');
-            candado.textContent = '\uD83D\uDD12';
-            candado.style.cssText = 'font-size:13px;opacity:0.8;flex:0 0 auto;';
-            card.appendChild(candado);
-
-            card.addEventListener('click', () => {
-                this.showToast('\uD83D\uDD12 ' + axie.nombre + ' no esta disponible todavia');
-            });
-            return card;
+            const lock = document.createElement('div');
+            lock.textContent = '\uD83D\uDD12';
+            lock.style.cssText = `
+                position: absolute;
+                top: 4px;
+                right: 4px;
+                font-size: 16px;
+                filter: drop-shadow(0 0 4px rgba(0,0,0,0.9));
+            `;
+            card.appendChild(lock);
         }
 
-        card.addEventListener('click', () => {
-            document.querySelectorAll('#axie-select-modal .menu-card').forEach(c => {
-                c.classList.remove('selected');
-                c.style.background = 'rgba(255,255,255,0.06)';
-                c.style.borderColor = 'rgba(255,255,255,0.15)';
-                c.style.boxShadow = 'none';
-                c.style.transform = 'translateX(0)';
-            });
-            card.classList.add('selected');
-            card.style.background = 'rgba(255,220,68,0.10)';
-            card.style.borderColor = '#ffdd44';
-            card.style.boxShadow = '0 0 22px rgba(255,220,68,0.22)';
-            card.style.transform = 'translateX(4px)';
-
-            this.selectAxieInModal(axie);
-        });
-
+        card.onmouseenter = () => {
+            if (!isLocked) {
+                card.style.transform = 'scale(0.93)';
+                card.style.boxShadow = `0 0 28px ${axie.color || '#44ff88'}cc`;
+            }
+        };
+        card.onmouseleave = () => {
+            if (!isLocked) {
+                card.style.transform = 'scale(1)';
+                card.style.boxShadow = `0 0 10px ${axie.color || '#44ff88'}44`;
+            }
+        };
+        card.onclick = () => {
+            if (!isLocked) this.selectAxieInModal(axie);
+        };
         return card;
     }
 
