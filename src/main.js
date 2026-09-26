@@ -836,7 +836,7 @@ function enableEditorMode() {
     addEditorListeners();
 
     if (goldDiv) goldDiv.style.display = 'none';
-    if (waveDiv) waveDiv.style.display = 'none';
+    
     if (timerDiv) timerDiv.style.display = 'none';
     if (fpsDiv) fpsDiv.style.display = 'none';
     if (targetUI) targetUI.style.display = 'none';
@@ -865,7 +865,7 @@ function disableEditorMode() {
     }
 
     if (goldDiv) goldDiv.style.display = 'block';
-    if (waveDiv) waveDiv.style.display = 'block';
+    
     if (timerDiv) timerDiv.style.display = 'block';
     if (fpsDiv) fpsDiv.style.display = 'block';
     editorSelection = null;
@@ -3846,10 +3846,7 @@ fpsDiv.style.cssText = `position:fixed;top:20px;right:20px;color:#88aaff;font-fa
 fpsDiv.textContent = 'FPS: 0';
 document.body.appendChild(fpsDiv);
 
-const waveDiv = document.createElement('div');
-waveDiv.style.cssText = `position:fixed;top:80px;left:50%;transform:translateX(-50%);color:#ffaa44;font-family:monospace;font-size:16px;font-weight:bold;background:rgba(0,0,0,0.7);padding:4px 16px;border-radius:8px;z-index:100;pointer-events:none;display:none;`;
-waveDiv.textContent = '⏳ 15s';
-document.body.appendChild(waveDiv);
+
 
 const goldDiv = document.createElement('div');
 goldDiv.id = 'player-gold-display';
@@ -5210,7 +5207,7 @@ function spawnWave() {
     }
 
     const comp = getWaveComposition();
-    waveDiv.textContent = `⚔️ OLEADA ${waveNumber}`;
+    
 
     // 🎯 NUEVO: spawn junto al nexo con formación tipo LoL
     //
@@ -5640,14 +5637,14 @@ function createPotionHUD(h) {
     const hpBox = document.createElement('div');
     hpBox.id = 'potion-hp-box';
     hpBox.style.cssText = `width:34px;height:34px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.15);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative;`;
-    hpBox.innerHTML = `<div style="font-size:14px;">🧪</div><div id="potion-hp-count" style="position:absolute;bottom:1px;right:3px;font-size:10px;color:#ff6644;font-weight:bold;">0</div>`;
+    hpBox.innerHTML = `<div style="font-size:14px;">🧪</div><div id="potion-hp-count" style="position:absolute;bottom:1px;right:3px;font-size:10px;color:#ff6644;font-weight:bold;">0</div><div style="position:absolute;top:1px;left:3px;font-size:9px;color:#fff;font-weight:bold;background:rgba(0,0,0,0.7);padding:1px 4px;border-radius:3px;">D</div>`;
     hpBox.onclick = () => usePotion('hp');
     potionHUD.appendChild(hpBox);
     
     const mpBox = document.createElement('div');
     mpBox.id = 'potion-mp-box';
     mpBox.style.cssText = `width:34px;height:34px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.15);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative;`;
-    mpBox.innerHTML = `<div style="font-size:14px;">💧</div><div id="potion-mp-count" style="position:absolute;bottom:1px;right:3px;font-size:10px;color:#44aaff;font-weight:bold;">0</div>`;
+    mpBox.innerHTML = `<div style="font-size:14px;">💧</div><div id="potion-mp-count" style="position:absolute;bottom:1px;right:3px;font-size:10px;color:#44aaff;font-weight:bold;">0</div><div style="position:absolute;top:1px;left:3px;font-size:9px;color:#fff;font-weight:bold;background:rgba(0,0,0,0.7);padding:1px 4px;border-radius:3px;">F</div>`;
     mpBox.onclick = () => usePotion('mp');
     potionHUD.appendChild(mpBox);
     
@@ -5951,7 +5948,7 @@ function createItemHUD(h) {
     itemHUD.style.cssText = `width:130px;height:${h}px;background:rgba(0,0,0,0.9);border:2px solid rgba(255,255,255,0.3);border-radius:12px;padding:6px;display:flex;flex-direction:column;align-items:center;box-sizing:border-box;`;
     const title = document.createElement('div');
     title.textContent = t('hud.items');
-    title.style.cssText = `font-size:10px;color:#ffcc44;font-weight:bold;margin-bottom:3px;letter-spacing:2px;`;
+    title.style.cssText = `font-size:10px;color:#ffcc44;font-weight:bold;margin-bottom:10px;letter-spacing:2px;`;
     itemHUD.appendChild(title);
     const grid = document.createElement('div');
     grid.style.cssText = `display:grid;grid-template-columns:repeat(3,1fr);gap:4px;`;
@@ -8231,7 +8228,7 @@ function abandonGame() {
     stopGameLoop();
     if (timerDiv) timerDiv.style.display = 'none';
     if (fpsDiv) fpsDiv.style.display = 'none';
-    if (waveDiv) waveDiv.style.display = 'none';
+    
     if (targetUI) targetUI.style.display = 'none';
     for (const t of towers) {
         for (const p of t.projectiles) { p.active = false; if (p.mesh && p.mesh.parent) scene.remove(p.mesh); }
@@ -8346,7 +8343,7 @@ function showMainMenu() {
     if (renderer) renderer.domElement.style.display = 'none';
     if (timerDiv) timerDiv.style.display = 'none';
     if (fpsDiv) fpsDiv.style.display = 'none';
-    if (waveDiv) waveDiv.style.display = 'none';
+    
     if (targetUI) targetUI.style.display = 'none';
     if (goldDiv) goldDiv.style.display = 'none';
     enemyAxieDebugHUD.style.display = 'none';
@@ -8464,7 +8461,7 @@ async function startAIGame(axieId) {
     renderer.domElement.style.display = 'block';
     timerDiv.style.display = 'block';
     fpsDiv.style.display = 'block';
-    waveDiv.style.display = 'block';
+    
     camera.position.copy(cameraSmoothPos);
     camera.lookAt(cameraSmoothTarget);
     renderer.render(scene, camera);
@@ -8580,7 +8577,7 @@ async function startGame(axieId) {
     renderer.domElement.style.display = 'block';
     timerDiv.style.display = 'block';
     fpsDiv.style.display = 'block';
-    waveDiv.style.display = 'block';
+    
     camera.position.copy(cameraSmoothPos);
     camera.lookAt(cameraSmoothTarget);
     renderer.render(scene, camera);
@@ -9002,48 +8999,46 @@ function mostrarMarcador() {
 
     // Fila de la izquierda: jugador humano. Derecha: la IA enemiga.
     const ladoJugador =
-        filaMarcador('🗡️', 'Daño de ataque', Math.round(attackDamage), '#ff8844') +
-        filaMarcador('🛡️', 'Defensa física', playerArmor, '#aabbdd') +
-        filaMarcador('📿', 'Defensa mágica', playerMagicResist, '#cc88ff') +
-        filaMarcador('⚡', 'Vel. ataque', attackSpeed.toFixed(2) + 's', '#ffaa44') +
-        filaMarcador('🏹', 'Rango', attackRange.toFixed(1), '#aa88ff') +
-        filaMarcador('❤️', 'Vida', hpHumano + '/' + Math.round(playerMaxHealth), '#ff6644') +
-        filaMarcador('💰', 'Oro', Math.round(playerGold), '#ffcc44') +
-        filaMarcador('💀', 'Muertes', playerDeathCount, '#ff4466') +
-        filaMarcador('🏰', 'Torres en pie', st.torresAliadas + '/' + st.torresAliadasTotal, '#44ff88');
+        filaMarcador("🗡️", t('score.attack_damage'), Math.round(attackDamage), '#ff8844') +
+        filaMarcador("🛡️", t('score.phys_def'), playerArmor, '#aabbdd') +
+        filaMarcador("📿", t('score.mag_def'), playerMagicResist, '#cc88ff') +
+        filaMarcador("⚡", t('score.atk_speed'), attackSpeed.toFixed(2) + 's', '#ffaa44') +
+        filaMarcador("🏹", t('score.range'), attackRange.toFixed(1), '#aa88ff') +
+        filaMarcador("❤️", t('score.health'), hpHumano + '/' + Math.round(playerMaxHealth), '#ff6644') +
+        filaMarcador("💰", t('score.gold'), Math.round(playerGold), '#ffcc44') +
+        filaMarcador("💀", t('score.deaths'), playerDeathCount, '#ff4466') +
+        filaMarcador("🏰", t('score.towers'), st.torresAliadas + '/' + st.torresAliadasTotal, '#44ff88');
 
     const ladoEnemigo =
-        filaMarcador('🗡️', 'Daño de ataque', Math.round(ENEMY_AXIE_ATTACK_DAMAGE * enemyAxieBonuses.damageMultiplier), '#ff8844') +
-        filaMarcador('🛡️', 'Defensa física', '-', '#888') +
-        filaMarcador('📿', 'Defensa mágica', '-', '#888') +
-        filaMarcador('⚡', 'Vel. ataque', (ENEMY_AXIE_ATTACK_SPEED).toFixed(2) + 's', '#ffaa44') +
-        filaMarcador('🏹', 'Rango', ENEMY_AXIE_ATTACK_RANGE.toFixed(1), '#aa88ff') +
-        filaMarcador('❤️', 'Vida', hpAxie + '/' + Math.round(enemyAxieMaxHealth), '#ff6644') +
-        filaMarcador('💰', 'Oro', Math.round(enemyAxieGold), '#ffcc44') +
-        filaMarcador('🏆', 'Objetos', Object.keys(enemyAxieItems || {}).length, '#ffcc44') +
-        filaMarcador('🏰', 'Torres en pie', st.torresEnemigas + '/' + st.torresEnemigasTotal, '#ff4488');
+        filaMarcador("🗡️", t('score.attack_damage'), Math.round(ENEMY_AXIE_ATTACK_DAMAGE * enemyAxieBonuses.damageMultiplier), '#ff8844') +
+        filaMarcador("🛡️", t('score.phys_def'), '-', '#888') +
+        filaMarcador("📿", t('score.mag_def'), '-', '#888') +
+        filaMarcador("⚡", t('score.atk_speed'), (ENEMY_AXIE_ATTACK_SPEED).toFixed(2) + 's', '#ffaa44') +
+        filaMarcador("🏹", t('score.range'), ENEMY_AXIE_ATTACK_RANGE.toFixed(1), '#aa88ff') +
+        filaMarcador("❤️", t('score.health'), hpAxie + '/' + Math.round(enemyAxieMaxHealth), '#ff6644') +
+        filaMarcador("💰", t('score.gold'), Math.round(enemyAxieGold), '#ffcc44') +
+        filaMarcador("🏆", t('score.items'), Object.keys(enemyAxieItems || {}).length, '#ffcc44') +
+        filaMarcador("🏰", t('score.towers'), st.torresEnemigas + '/' + st.torresEnemigasTotal, '#ff4488');
 
     const el = document.createElement('div');
     el.id = 'marcador-tab';
     el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);' +
         'background:rgba(0,0,0,0.92);border:2px solid rgba(255,255,255,0.35);border-radius:14px;' +
-        'padding:22px 28px;z-index:300;color:#fff;font-family:\'Courier New\',monospace;' +
+        'padding:22px 28px;z-index:300;color:#fff;font-family:"Courier New",monospace;' +
         'min-width:560px;pointer-events:none;box-shadow:0 0 40px rgba(0,0,0,0.8);';
 
     el.innerHTML =
-        '<div style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:14px;color:#ffcc44;letter-spacing:2px;">MARCADOR</div>' +
+        '<div style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:14px;color:#ffcc44;letter-spacing:2px;">' + t('score.title') + '</div>' +
         '<div style="display:flex;gap:34px;justify-content:space-between;">' +
-            '<div style="flex:1;"><div style="text-align:center;font-size:16px;font-weight:bold;color:#44ff88;margin-bottom:8px;">' + currentAxieName + '</div>' + ladoJugador + '</div>' +
+            '<div style="flex:1;"><div style="text-align:center;font-size:16px;font-weight:bold;color:#44ff88;margin-bottom:8px;">' + t('score.player') + '</div>' + ladoJugador + '</div>' +
             '<div style="width:2px;background:rgba(255,255,255,0.2);"></div>' +
-            '<div style="flex:1;"><div style="text-align:center;font-size:16px;font-weight:bold;color:#ff4488;margin-bottom:8px;">AXIE ENEMIGO</div>' + ladoEnemigo + '</div>' +
+            '<div style="flex:1;"><div style="text-align:center;font-size:16px;font-weight:bold;color:#ff4488;margin-bottom:8px;">' + t('score.ai') + '</div>' + ladoEnemigo + '</div>' +
         '</div>' +
-        '<div style="text-align:center;font-size:11px;color:#888;margin-top:14px;">Suelta Tab para cerrar</div>';
+        '<div style="text-align:center;font-size:11px;color:#888;margin-top:14px;">' + t('score.release_tab') + '</div>';
 
     document.body.appendChild(el);
     marcadorElemento = el;
-}
-
-function ocultarMarcador() {
+}function ocultarMarcador() {
     if (marcadorElemento) {
         marcadorElemento.remove();
         marcadorElemento = null;
@@ -9110,6 +9105,26 @@ document.addEventListener('keydown', (e) => {
         const idx = modos.indexOf(cameraMode);
         const next = modos[(idx + 1) % modos.length];
         setCameraMode(next);
+        return;
+    }
+
+    // Tecla D: usar poción de HP
+    if (e.key === 'd' || e.key === 'D') {
+        if (!gameStarted || gameFinished || gamePaused) return;
+        if (isAITrainingMode) return;
+        if (!playerSpawned || isPlayerDead) return;
+        if (shopOpen) return;
+        if (typeof usePotion === 'function') usePotion('hp');
+        return;
+    }
+
+    // Tecla F: usar poción de MP
+    if (e.key === 'f' || e.key === 'F') {
+        if (!gameStarted || gameFinished || gamePaused) return;
+        if (isAITrainingMode) return;
+        if (!playerSpawned || isPlayerDead) return;
+        if (shopOpen) return;
+        if (typeof usePotion === 'function') usePotion('mp');
         return;
     }
 
@@ -9420,7 +9435,7 @@ function gameLoop(time, token) {
 
     if (!gameStarted) {
         startTimer -= delta;
-        waveDiv.textContent = `⏳ ${Math.ceil(startTimer)}s`;
+        
         if (startTimer <= 0) {
             gameStarted = true;
             if (aliados.filter(m => !m.isDead).length === 0 && enemigos.filter(m => !m.isDead).length === 0 && spawnQueue.length === 0) {
@@ -9619,7 +9634,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loading) loading.style.display = 'none';
     timerDiv.style.display = 'none';
     fpsDiv.style.display = 'none';
-    waveDiv.style.display = 'none';
+    
     targetUI.style.display = 'none';
     goldDiv.style.display = 'none';
     enemyAxieDebugHUD.style.display = 'none';
@@ -9970,7 +9985,7 @@ function sandboxEnter(){
     renderer.domElement.style.height='100%';
   }
   if(goldDiv) goldDiv.style.display='none';
-  if(waveDiv) waveDiv.style.display='none';
+  
   if(timerDiv) timerDiv.style.display='none';
   if(fpsDiv) fpsDiv.style.display='none';
   if(playerModel) playerModel.visible=false;
@@ -10060,7 +10075,7 @@ function sandboxExitMode(){
   if(sandboxGrid){scene.remove(sandboxGrid);sandboxGrid=null;}
   if(sandboxSelectionBox){scene.remove(sandboxSelectionBox);sandboxSelectionBox=null;}
   if(goldDiv) goldDiv.style.display='block';
-  if(waveDiv) waveDiv.style.display='block';
+  
   if(timerDiv) timerDiv.style.display='block';
   if(fpsDiv) fpsDiv.style.display='block';
   aliados.forEach(m=>m.group&&(m.group.visible=true));
