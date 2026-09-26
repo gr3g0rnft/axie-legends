@@ -8068,6 +8068,10 @@ renderer.domElement.addEventListener('mouseup', (e) => {
 function showPauseMenu() {
     if (gamePaused) return;
     if (gameFinished && !isAITrainingMode) return;
+    
+    // FIX A: Asegurar que los valores estén cargados desde localStorage
+    if (audio && audio.loadSettings) audio.loadSettings();
+    
     gamePaused = true;
     pauseMenu = document.createElement('div');
     pauseMenu.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:1500;color:#fff;font-family:Arial;`;
@@ -8487,6 +8491,14 @@ async function startAIGame(axieId) {
     updateHUDEntrenamiento();
     startGameLoop();
 
+    // Aplicar modo de cámara guardado (la key correcta)
+    const savedCamMode = localStorage.getItem('axie_camera_mode') || 'locked';
+    if (typeof setCameraMode === 'function' && typeof cameraMode !== 'undefined') {
+        if (savedCamMode && savedCamMode !== cameraMode) {
+            setCameraMode(savedCamMode);
+        }
+    }
+
     // Forzar actualización del HUD con el idioma actual
     setTimeout(() => {
         if (typeof updateLevelHUD === 'function') updateLevelHUD();
@@ -8601,6 +8613,14 @@ async function startGame(axieId) {
         if (!enemyAxieSpawned) spawnEnemyAxie();
     }, CONFIG.AXIE_SPAWN_TIME * 1000);
     startGameLoop();
+
+    // Aplicar modo de cámara guardado (la key correcta)
+    const savedCamMode = localStorage.getItem('axie_camera_mode') || 'locked';
+    if (typeof setCameraMode === 'function' && typeof cameraMode !== 'undefined') {
+        if (savedCamMode && savedCamMode !== cameraMode) {
+            setCameraMode(savedCamMode);
+        }
+    }
 
     // Forzar actualización del HUD con el idioma actual
     setTimeout(() => {

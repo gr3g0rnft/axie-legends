@@ -64,6 +64,11 @@ export class MenuScreen {
             window.removeEventListener('keydown', this._unlockHandler);
             this._unlockHandler = null;
         }
+        // PASO 5: Desregistrar listener de volumen
+        if (this._volumeListener) {
+            audio.offVolumeChange(this._volumeListener);
+            this._volumeListener = null;
+        }
         if (this.menuMusicAudio) {
             this.menuMusicAudio.pause();
             this.menuMusicAudio.currentTime = 0;
@@ -75,6 +80,11 @@ export class MenuScreen {
         this.onPlay = onStartGame;
         this.onStartGame = onStartGame;
         this.onSelectAxie = onSelectAxie;
+
+        // FIX C: Recargar settings del audio al recrear el menú
+        if (audio && audio.loadSettings) {
+            audio.loadSettings();
+        }
 
         this.container = document.createElement('div');
         this.container.id = 'menu-screen';
@@ -135,6 +145,16 @@ export class MenuScreen {
         // El navegador bloquea el autoplay hasta la primera interacción,
         // así que intentamos sonar y, si falla, lo desbloqueamos al primer clic.
         this._startLobbyMusic();
+
+        // PASO 4: Escuchar cambios de volumen del AudioManager
+        if (!this._volumeListener) {
+            this._volumeListener = (musicVol, sfxVol, masterVol) => {
+                if (this.menuMusicAudio) {
+                    this.menuMusicAudio.volume = musicVol * masterVol;
+                }
+            };
+            audio.onVolumeChange(this._volumeListener);
+        }
 
         // ---- LOGO / TITULO ----
         // Logo text removed per user request (no "AXIE LEGENDS" label)
@@ -312,7 +332,7 @@ export class MenuScreen {
         };
 
         bottomBar.appendChild(crearBotonInferior('menu-guide-btn', t('menu.guide'), () => this._mostrarModalGuia()));
-        bottomBar.appendChild(crearBotonInferior('menu-options-btn', t('menu.options')));
+        bottomBar.appendChild(crearBotonInferior('menu-options-btn', t('menu.options'), () => this._mostrarModalOpciones()));
         bottomBar.appendChild(crearBotonInferior('menu-patch-btn', t('menu.patch')));
 
         const separador = document.createElement('div');
@@ -956,6 +976,320 @@ export class MenuScreen {
 
     _cerrarModalGuia() {
         const modal = document.getElementById('menu-guide-modal');
+        if (modal) {
+            if (modal._escHandler) {
+                document.removeEventListener('keydown', modal._escHandler);
+            }
+            modal.remove();
+        }
+    }
+
+        _mostrarModalOpciones() {
+        const anterior = document.getElementById('menu-options-modal');
+        if (anterior) anterior.remove();
+
+        // FIX 3 & 6: Estado temporal (pending) para cámara
+        let pendingCameraMode = localStorage.getItem('axie_camera_mode') || 'locked';
+
+        const modal = document.createElement('div');
+        modal.id = 'menu-options-modal';
+        modal.style.cssText = `
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #fff;
+            padding: 20px;
+        `;
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            position: relative;
+            background: linear-gradient(160deg, rgba(20,24,48,0.98), rgba(10,12,28,0.98));
+            border: 2px solid rgba(0, 170, 255, 0.5);
+            border-radius: 16px;
+            box-shadow: 0 0 60px rgba(0, 170, 255, 0.25);
+            padding: 30px 40px;
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+        `;
+
+        // Título
+        const title = document.createElement('div');
+        title.textContent = t('options.title');
+        title.setAttribute('data-i18n', 'options.title');
+        title.style.cssText = `
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(0, 170, 255, 0.6);
+            margin-bottom: 6px;
+            text-align: center;
+        `;
+        panel.appendChild(title);
+
+        // Subtítulo
+        const sub = document.createElement('div');
+        sub.textContent = t('options.subtitle');
+        sub.setAttribute('data-i18n', 'options.subtitle');
+        sub.style.cssText = `
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: #88aaff;
+            text-align: center;
+            margin-bottom: 24px;
+            opacity: 0.8;
+        `;
+        panel.appendChild(sub);
+
+        // SECCIÓN CÁMARA
+        const camSection = document.createElement('div');
+        camSection.style.cssText = `margin-bottom: 22px;`;
+        camSection.innerHTML = `
+            <div data-i18n="options.section_camera" style="font-size:13px;font-weight:700;color:#88ddff;letter-spacing:2px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(0,170,255,0.3);">${t('options.section_camera')}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+                <span data-i18n="options.default_camera" style="font-size:13px;color:#aaccff;">${t('options.default_camera')}</span>
+                <div style="display:flex;gap:8px;">
+                    <button id="opt-cam-locked" style="padding:8px 14px;background:rgba(0,170,255,0.2);border:2px solid rgba(0,170,255,0.5);border-radius:6px;color:#fff;font-size:12px;font-weight:bold;cursor:pointer;">${t('options.cam_locked')}</button>
+                    <button id="opt-cam-free" style="padding:8px 14px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;font-weight:bold;cursor:pointer;">${t('options.cam_free')}</button>
+                </div>
+            </div>
+        `;
+        panel.appendChild(camSection);
+
+        // SECCIÓN AUDIO
+        const audioSection = document.createElement('div');
+        audioSection.style.cssText = `margin-bottom: 22px;`;
+        audioSection.innerHTML = `
+            <div data-i18n="options.section_audio" style="font-size:13px;font-weight:700;color:#88ddff;letter-spacing:2px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(0,170,255,0.3);">${t('options.section_audio')}</div>
+            <div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
+                <span data-i18n="options.music" style="font-size:13px;color:#aaccff;flex:0 0 100px;">${t('options.music')}</span>
+                <input type="range" id="opt-music-vol" min="0" max="1" step="0.05" value="0.5" style="flex:1;">
+                <span id="opt-music-val" style="font-size:12px;color:#fff;width:44px;text-align:right;">50%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
+                <span data-i18n="options.sfx" style="font-size:13px;color:#aaccff;flex:0 0 100px;">${t('options.sfx')}</span>
+                <input type="range" id="opt-sfx-vol" min="0" max="1" step="0.05" value="0.5" style="flex:1;">
+                <span id="opt-sfx-val" style="font-size:12px;color:#fff;width:44px;text-align:right;">50%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
+                <span data-i18n="options.master" style="font-size:13px;color:#aaccff;flex:0 0 100px;">${t('options.master')}</span>
+                <input type="range" id="opt-master-vol" min="0" max="1" step="0.05" value="0.5" style="flex:1;">
+                <span id="opt-master-val" style="font-size:12px;color:#fff;width:44px;text-align:right;">50%</span>
+            </div>
+        `;
+        panel.appendChild(audioSection);
+
+        // SECCIÓN IDIOMA
+        const langSection = document.createElement('div');
+        langSection.style.cssText = `margin-bottom: 22px;`;
+        langSection.innerHTML = `
+            <div data-i18n="options.section_language" style="font-size:13px;font-weight:700;color:#88ddff;letter-spacing:2px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(0,170,255,0.3);">${t('options.section_language')}</div>
+            <div style="display:flex;gap:12px;">
+                <button id="opt-lang-es" style="padding:10px 24px;background:rgba(0,170,255,0.2);border:2px solid rgba(0,170,255,0.5);border-radius:6px;color:#fff;font-size:14px;font-weight:bold;cursor:pointer;">🇪🇸 ES</button>
+                <button id="opt-lang-en" style="padding:10px 24px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:14px;font-weight:bold;cursor:pointer;">🇬🇧 EN</button>
+            </div>
+        `;
+        panel.appendChild(langSection);
+
+        // Botón GUARDAR (FIX 4)
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = t('options.save');
+        saveBtn.setAttribute('data-i18n', 'options.save');
+        saveBtn.style.cssText = `
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, rgba(0,170,255,0.4), rgba(0,120,220,0.4));
+            border: 2px solid rgba(0, 170, 255, 0.6);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        `;
+        saveBtn.onmouseover = () => { saveBtn.style.background = 'linear-gradient(90deg, rgba(0,170,255,0.6), rgba(0,120,220,0.6))'; };
+        saveBtn.onmouseout = () => { saveBtn.style.background = 'linear-gradient(90deg, rgba(0,170,255,0.4), rgba(0,120,220,0.4))'; };
+        saveBtn.onclick = () => {
+            // FIX 4: Persistir volúmenes reales (set* guarda en localStorage)
+            if (audio) {
+                if (audio.setMusicVolume) audio.setMusicVolume(audio.musicVolume);
+                if (audio.setSfxVolume) audio.setSfxVolume(audio.sfxVolume);
+                if (audio.setMasterVolume) audio.setMasterVolume(audio.masterVolume);
+            }
+            // Persistir modo de cámara pendiente
+            localStorage.setItem('axie_camera_mode', pendingCameraMode);
+
+            // Mostrar feedback guardado y cerrar tras 600ms
+            const original = saveBtn.textContent;
+            saveBtn.textContent = t('options.saved');
+            saveBtn.style.background = 'linear-gradient(90deg, rgba(68,204,102,0.4), rgba(50,180,80,0.4))';
+            saveBtn.style.borderColor = 'rgba(68,204,102,0.6)';
+            setTimeout(() => {
+                this._cerrarModalOpciones();
+            }, 600);
+        };
+        panel.appendChild(saveBtn);
+
+        // Botón de cerrar (FIX 5: solo cierra sin persistir)
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 68, 68, 0.9);
+            border: 2px solid rgba(255, 200, 200, 0.9);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+        `;
+        closeBtn.onclick = () => this._cerrarModalOpciones();
+        panel.appendChild(closeBtn);
+
+        modal.appendChild(panel);
+        document.body.appendChild(modal);
+
+        // =============================
+        // INICIALIZAR VALORES (FIX 6)
+        // =============================
+        const savedMusic = audio ? audio.musicVolume : 0.5;
+        const savedSfx = audio ? audio.sfxVolume : 0.5;
+        const savedMaster = audio ? audio.masterVolume : 0.5;
+
+        // Actualizar botones de cámara según pendingCameraMode
+        const updateCamButtons = () => {
+            const locked = document.getElementById('opt-cam-locked');
+            const free = document.getElementById('opt-cam-free');
+            if (!locked || !free) return;
+            if (pendingCameraMode === 'locked') {
+                locked.style.background = 'rgba(0,170,255,0.3)';
+                locked.style.borderColor = 'rgba(0,170,255,0.8)';
+                free.style.background = 'rgba(255,255,255,0.05)';
+                free.style.borderColor = 'rgba(255,255,255,0.2)';
+            } else {
+                free.style.background = 'rgba(0,170,255,0.3)';
+                free.style.borderColor = 'rgba(0,170,255,0.8)';
+                locked.style.background = 'rgba(255,255,255,0.05)';
+                locked.style.borderColor = 'rgba(255,255,255,0.2)';
+            }
+        };
+        updateCamButtons();
+
+        document.getElementById('opt-cam-locked').onclick = () => {
+            pendingCameraMode = 'locked';
+            updateCamButtons();
+        };
+        document.getElementById('opt-cam-free').onclick = () => {
+            pendingCameraMode = 'free';
+            updateCamButtons();
+        };
+
+        // Sliders llaman a set* (aplicar Y persistir, como el menú de pausa)
+        const musicSlider = document.getElementById('opt-music-vol');
+        const musicVal = document.getElementById('opt-music-val');
+        musicSlider.value = savedMusic;
+        musicVal.textContent = Math.round(savedMusic * 100) + '%';
+        musicSlider.oninput = () => {
+            const v = parseFloat(musicSlider.value);
+            musicVal.textContent = Math.round(v * 100) + '%';
+            if (audio && audio.setMusicVolume) audio.setMusicVolume(v);
+        };
+
+        const sfxSlider = document.getElementById('opt-sfx-vol');
+        const sfxVal = document.getElementById('opt-sfx-val');
+        sfxSlider.value = savedSfx;
+        sfxVal.textContent = Math.round(savedSfx * 100) + '%';
+        sfxSlider.oninput = () => {
+            const v = parseFloat(sfxSlider.value);
+            sfxVal.textContent = Math.round(v * 100) + '%';
+            if (audio && audio.setSfxVolume) audio.setSfxVolume(v);
+        };
+
+        const masterSlider = document.getElementById('opt-master-vol');
+        const masterVal = document.getElementById('opt-master-val');
+        masterSlider.value = savedMaster;
+        masterVal.textContent = Math.round(savedMaster * 100) + '%';
+        masterSlider.oninput = () => {
+            const v = parseFloat(masterSlider.value);
+            masterVal.textContent = Math.round(v * 100) + '%';
+            if (audio && audio.setMasterVolume) audio.setMasterVolume(v);
+        };
+
+        // Botones de idioma (FIX 2: aplican en vivo)
+        const updateLangButtons = () => {
+            const lang = getIdioma();
+            const btnEs = document.getElementById('opt-lang-es');
+            const btnEn = document.getElementById('opt-lang-en');
+            if (!btnEs || !btnEn) return;
+            if (lang === 'es') {
+                btnEs.style.background = 'rgba(0,170,255,0.3)';
+                btnEs.style.borderColor = 'rgba(0,170,255,0.8)';
+                btnEn.style.background = 'rgba(255,255,255,0.05)';
+                btnEn.style.borderColor = 'rgba(255,255,255,0.2)';
+            } else {
+                btnEn.style.background = 'rgba(0,170,255,0.3)';
+                btnEn.style.borderColor = 'rgba(0,170,255,0.8)';
+                btnEs.style.background = 'rgba(255,255,255,0.05)';
+                btnEs.style.borderColor = 'rgba(255,255,255,0.2)';
+            }
+        };
+        updateLangButtons();
+
+        document.getElementById('opt-lang-es').onclick = () => {
+            setIdioma('es');
+            updateLangButtons();
+            this._actualizarTextos();
+            this._actualizarEstilosIdioma();
+            // FIX 3: Refrescar textos del MODAL sin cerrarlo (usar data-i18n)
+            const modal = document.getElementById('menu-options-modal');
+            if (modal) {
+                modal.querySelectorAll('[data-i18n]').forEach(el => {
+                    el.textContent = t(el.dataset.i18n);
+                });
+            }
+        };
+        document.getElementById('opt-lang-en').onclick = () => {
+            setIdioma('en');
+            updateLangButtons();
+            this._actualizarTextos();
+            this._actualizarEstilosIdioma();
+            // FIX 3: Refrescar textos del MODAL sin cerrarlo (usar data-i18n)
+            const modal = document.getElementById('menu-options-modal');
+            if (modal) {
+                modal.querySelectorAll('[data-i18n]').forEach(el => {
+                    el.textContent = t(el.dataset.i18n);
+                });
+            }
+        };
+
+        // Cerrar con Escape
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this._cerrarModalOpciones();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        modal._escHandler = escHandler;
+    }
+
+    _cerrarModalOpciones() {
+        const modal = document.getElementById('menu-options-modal');
         if (modal) {
             if (modal._escHandler) {
                 document.removeEventListener('keydown', modal._escHandler);

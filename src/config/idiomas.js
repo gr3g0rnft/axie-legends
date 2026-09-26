@@ -67,6 +67,21 @@ const TRADUCCIONES = {
         'guide.axie_core':       'Click on 🧬 Axie Core',
         'guide.axie_core_desc':  'View races',
 
+        // ML.6 - Modal OPCIONES
+        'options.title':            '⚙️ OPTIONS',
+        'options.subtitle':         'GAME SETTINGS',
+        'options.section_camera':   '📷 CAMERA',
+        'options.section_audio':    '🔊 AUDIO',
+        'options.section_language': '🌐 LANGUAGE',
+        'options.default_camera':   'Default mode:',
+        'options.cam_locked':       '🔒 Locked',
+        'options.cam_free':         '🆓 Free',
+        'options.music':            '🎵 Music',
+        'options.sfx':              '🔔 Effects',
+        'options.master':           '🔊 Master',
+        'options.save':             '💾 SAVE',
+        'options.saved':            '✅ Saved!',
+
         // Teclas de pociones
         'guide.potion_hp_key':      'Key D',
         'guide.potion_hp_key_desc': 'Use HP potion',
@@ -311,6 +326,21 @@ const TRADUCCIONES = {
         'guide.escape_desc':     'Pausa',
         'guide.axie_core':       'Click en 🧬 Axie Core',
         'guide.axie_core_desc':  'Ver razas',
+
+        // ML.6 - Modal OPCIONES
+        'options.title':            '⚙️ OPCIONES',
+        'options.subtitle':         'CONFIGURACIÓN DEL JUEGO',
+        'options.section_camera':   '📷 CÁMARA',
+        'options.section_audio':    '🔊 AUDIO',
+        'options.section_language': '🌐 IDIOMA',
+        'options.default_camera':   'Modo por defecto:',
+        'options.cam_locked':       '🔒 Bloqueada',
+        'options.cam_free':         '🆓 Libre',
+        'options.music':            '🎵 Música',
+        'options.sfx':              '🔔 Efectos',
+        'options.master':           '🔊 Master',
+        'options.save':             '💾 GUARDAR',
+        'options.saved':            '✅ ¡Guardado!',
 
         // Teclas de pociones
         'guide.potion_hp_key':      'Tecla D',
