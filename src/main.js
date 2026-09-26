@@ -7,6 +7,8 @@ import { getAxieById, getAllAxies, getPerfilCombate } from './config/axies.js';
 import { getHabilidades, getHabilidad, setAxieActual, getHabilidadEnNivel } from './config/habilidades.js';
 import { calcularBonusAxie, getRazasInfo, getPartesAxie, RAZAS, CASILLAS, DESCRIPCIONES_BONUS } from './config/axie-core.js';
 import { audio } from './audio/AudioManager.js';
+
+import { t } from './config/idiomas.js';
 import { initCombatSystem } from './systems/combat-controller.js';
 
 // Inicializar sistema de combate (targeting LoL)
@@ -1094,6 +1096,7 @@ function exportEditorChanges() {
 
 // Botón flotante clickeable para abrir el editor cenital
 function createEditorButton() {
+    return; // Sandbox temporalmente oculto (M-lobby)
     if (document.getElementById('btn-editor-cenital')) return;
     const btn = document.createElement('button');
     btn.id = 'btn-editor-cenital';
@@ -1364,12 +1367,12 @@ let camaraInicializada = false;
 function updateCameraHUD() {
     if (!cameraHUD) return;
     const map = {
-        locked: ['🔒', 'Cámara: Bloqueada'],
-        semi:   ['🎥', 'Cámara: Semi-libre'],
-        free:   ['🆓', 'Cámara: Libre']
+        locked: t('hud.camera_locked'),
+        semi:   t('hud.camera_semi'),
+        free:   t('hud.camera_free')
     };
-    const [icon, text] = map[cameraMode] || ['', ''];
-    cameraHUD.innerHTML = `${icon} ${text} &nbsp; Zoom: ${cameraZoom.toFixed(2)}`;
+    const text = map[cameraMode] || '';
+    cameraHUD.innerHTML = `${text} &nbsp; Zoom: ${cameraZoom.toFixed(2)}`;
 }
 
 function setCameraMode(mode) {
@@ -3102,7 +3105,7 @@ function createShopUI() {
     `;
     const header = document.createElement('div');
     header.style.cssText = `display:flex;justify-content:space-between;align-items:center;padding:15px 20px;background:rgba(255,200,50,0.1);border-bottom:2px solid rgba(255,200,50,0.3);border-radius:13px 13px 0 0;`;
-    header.innerHTML = `<div style="font-size:24px;font-weight:bold;color:#ffcc44;letter-spacing:3px;">🏪 TIENDA</div>`;
+    header.innerHTML = `<div style="font-size:24px;font-weight:bold;color:#ffcc44;letter-spacing:3px;">🏪 ${t('shop.title')}</div>`;
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '✕';
     closeBtn.style.cssText = `background:rgba(255,68,68,0.2);border:2px solid rgba(255,68,68,0.6);color:#ff4444;font-size:20px;font-weight:bold;width:36px;height:36px;border-radius:8px;cursor:pointer;`;
@@ -3113,14 +3116,14 @@ function createShopUI() {
     const tabs = document.createElement('div');
     tabs.style.cssText = `display:flex;gap:5px;padding:10px 20px;background:rgba(0,0,0,0.5);`;
     const potionsTab = document.createElement('button');
-    potionsTab.textContent = '🧪 Pociones';
+    potionsTab.textContent = '🧪 ' + t('shop.potions_tab');
     potionsTab.dataset.tab = 'potions';
     potionsTab.className = 'shop-tab active';
     potionsTab.style.cssText = `flex:1;padding:12px;background:rgba(68,255,136,0.2);border:2px solid rgba(68,255,136,0.6);color:#44ff88;font-size:16px;font-weight:bold;border-radius:8px;cursor:pointer;`;
     potionsTab.onclick = () => switchTab('potions');
     tabs.appendChild(potionsTab);
     const itemsTab = document.createElement('button');
-    itemsTab.textContent = '⚔️ Items';
+    itemsTab.textContent = '⚔️ ' + t('shop.items_tab');
     itemsTab.dataset.tab = 'items';
     itemsTab.className = 'shop-tab';
     itemsTab.style.cssText = `flex:1;padding:12px;background:rgba(136,170,255,0.1);border:2px solid rgba(136,170,255,0.3);color:#88aaff;font-size:16px;font-weight:bold;border-radius:8px;cursor:pointer;`;
@@ -3168,12 +3171,12 @@ function renderPotions(container) {
         const canAfford = playerGold >= p.cost;
         const item = createShopItem(
             p.emoji, 
-            p.name, 
-            p.desc, 
+            t('shop.item.' + p.id + '.name'), 
+            t('shop.item.' + p.id + '.desc'), 
             p.color, 
-            `💰 ${p.cost}  ·  Tienes: ${count}/${p.max}`, 
+            `💰 ${p.cost}  ·  ${t('shop.have')}: ${count}/${p.max}`, 
             !atMax && canAfford, 
-            atMax ? 'Máximo (10)' : (canAfford ? 'Comprar' : 'Sin oro'), 
+            atMax ? t('shop.max') + ' (10)' : (canAfford ? t('shop.buy') : t('shop.no_gold')), 
             () => buyPotion(p.id)
         );
         container.appendChild(item);
@@ -3188,11 +3191,11 @@ function renderItems(container) {
         const canAfford = playerGold >= itemData.cost;
         const canBuy = hasEmptySlot && canAfford;
         const desc = `${itemData.desc}`;
-        const statusText = !hasEmptySlot ? `Slots: ${slotsUsed}/6` : (canAfford ? 'Comprar' : 'Sin oro');
+        const statusText = !hasEmptySlot ? `Slots: ${slotsUsed}/6` : (canAfford ? t('shop.buy') : t('shop.no_gold'));
         const item = createShopItem(
             itemData.emoji, 
-            itemData.name, 
-            desc, 
+            t('shop.item.' + itemData.id + '.name'), 
+            t('shop.item.' + itemData.id + '.desc'), 
             itemData.color, 
             `💰 ${itemData.cost}  ·  Slots: ${slotsUsed}/6`, 
             canBuy, 
@@ -5604,7 +5607,7 @@ function createPlayerHUD() {
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,170,255,0.2);">
             <span style="color:#00aaff;font-size:14px;">⭐</span>
-            <div id="player-level-text" style="font-size:14px;font-weight:bold;color:#00aaff;text-shadow:0 0 6px rgba(0,170,255,0.6);min-width:44px;">Nv. 1</div>
+            <div id="player-level-text" style="font-size:14px;font-weight:bold;color:#00aaff;text-shadow:0 0 6px rgba(0,170,255,0.6);min-width:44px;"></div>
             <div style="flex:1;height:12px;background:rgba(255,255,255,0.1);border-radius:6px;overflow:hidden;border:1px solid rgba(0,170,255,0.3);">
                 <div id="player-exp-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#0088dd,#00aaff,#44ccff);transition:width 0.4s ease;box-shadow:0 0 6px rgba(0,170,255,0.8);"></div>
             </div>
@@ -5629,7 +5632,7 @@ function createPotionHUD(h) {
     potionHUD.style.cssText = `width:60px;height:${h}px;background:rgba(0,0,0,0.9);border:2px solid rgba(255,255,255,0.3);border-radius:12px;padding:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;pointer-events:auto;`;
     
     const title = document.createElement('div');
-    title.textContent = 'POTIONS';
+    title.textContent = t('hud.potions');
     title.style.cssText = `font-size:9px;color:#ffcc44;font-weight:bold;margin-bottom:2px;letter-spacing:1px;`;
     potionHUD.appendChild(title);
 
@@ -5831,27 +5834,27 @@ function mostrarTooltipHabilidad(habId, box) {
     const dano = v.dano !== undefined ? v.dano : '-';
     const rango = v.rango !== undefined ? v.rango : '-';
     const radio = v.radio !== undefined ? v.radio : '-';
-    const descripcion = habBase.descripcion || 'Sin descripción.';
+    const descripcion = t('hab.' + selectedAxieId + '.' + habId + '.desc') || habBase.descripcion || 'Sin descripción.';
     // PASO 2: acortar descripción a primera frase
     const descCorta = descripcion.split('.')[0] + '.';
     // PASO 2: comparativa vacía
     const comparativa = '';
     let html = `
         <div style="color:${habBase.color};font-weight:bold;font-size:12px;margin-bottom:3px;">
-            ${habBase.tecla} ${habBase.nombre} <span style="color:#88aacc;font-weight:normal;font-size:10px;">Nv.${nivel}</span>
+            ${habBase.tecla} ${habBase.nombre} <span style="color:#88aacc;font-weight:normal;font-size:10px;">${t('ability.level')}: ${nivel}</span>
         </div>
         <div style="color:#ddeeff;font-size:10px;margin-bottom:5px;">${descCorta}</div>
         <div style="color:#88aacc;font-size:11px;border-top:1px solid rgba(0,170,255,0.2);padding-top:4px;">
-            <div>Mana: <b style="color:#fff;">${mana}</b></div>
-            <div>Cooldown: <b style="color:#fff;">${cd}s</b></div>
-            <div>Daño: <b style="color:#fff;">${dano}</b></div>
-            <div>Rango: <b style="color:#fff;">${rango}</b></div>
+            <div>${t('ability.mana')}: <b style="color:#fff;">${mana}</b></div>
+            <div>${t('ability.cooldown')}: <b style="color:#fff;">${cd}s</b></div>
+            <div>${t('ability.damage')}: <b style="color:#fff;">${dano}</b></div>
+            <div>${t('ability.range')}: <b style="color:#fff;">${rango}</b></div>
     `;
     if (radio !== '-') {
         html += `<div>Radio: <b style="color:#fff;">${radio}</b></div>`;
     }
     if (v.bonus) {
-        html += `<div style="margin-top:4px;">Bonus:`;
+        html += `<div style="margin-top:4px;">${t('ability.bonus')}:`;
         for (const [k, val] of Object.entries(v.bonus)) {
             html += `<div style="margin-left:8px;">${k}: <b style="color:#fff;">${(val*100).toFixed(0)}%</b></div>`;
         }
@@ -5946,7 +5949,7 @@ function createItemHUD(h) {
     itemHUD = document.createElement('div');
     itemHUD.style.cssText = `width:130px;height:${h}px;background:rgba(0,0,0,0.9);border:2px solid rgba(255,255,255,0.3);border-radius:12px;padding:6px;display:flex;flex-direction:column;align-items:center;box-sizing:border-box;`;
     const title = document.createElement('div');
-    title.textContent = 'ITEMS';
+    title.textContent = t('hud.items');
     title.style.cssText = `font-size:10px;color:#ffcc44;font-weight:bold;margin-bottom:3px;letter-spacing:2px;`;
     itemHUD.appendChild(title);
     const grid = document.createElement('div');
@@ -6096,7 +6099,7 @@ function updateLevelHUD() {
     const levelEl = document.getElementById('player-level-text');
     const expBar = document.getElementById('player-exp-bar');
     const expText = document.getElementById('player-exp-text');
-    if (levelEl) levelEl.textContent = 'Nv. ' + playerLevel;
+    if (levelEl) levelEl.textContent = t('hud.level') + ' ' + playerLevel;
     if (expBar) {
         const pct = playerLevel >= PLAYER_MAX_LEVEL ? 100 : (playerExp / playerExpNext) * 100;
         expBar.style.width = Math.min(100, pct) + '%';
@@ -6292,7 +6295,8 @@ function createAxieCoreHUD() {
         position: fixed;
         bottom: 20px;
         left: 16px;
-        z-index: 100;
+        z-index: 2000;
+        pointer-events: auto;
         font-family: 'Segoe UI', system-ui, sans-serif;
         color: #e0e8f0;
         font-size: 13px;
@@ -6314,6 +6318,7 @@ function createAxieCoreHUD() {
             text-shadow: 0 0 6px rgba(0,170,255,0.6);
             box-shadow: 0 2px 10px rgba(0,0,0,0.5);
             transition: all 0.2s ease;
+            pointer-events: auto;
         ">
             <span style="font-size: 14px;">🧬 AXIE CORE</span>
             <span id="axie-core-arrow" style="font-size:12px;">▼</span>
@@ -6372,12 +6377,12 @@ function updateAxieCoreHUD(axieId) {
 
     // Nombres de las casillas
     const nombresCasilla = {
-        tipo:    'Tipo',
-        boca:    'Boca',
-        orejas:  'Orejas',
-        espalda: 'Espalda',
-        cola:    'Cola'
-    };
+    tipo:    t('axiecore.type'),
+    boca:    t('axiecore.mouth'),
+    orejas:  t('axiecore.ears'),
+    espalda: t('axiecore.back'),
+    cola:    t('axiecore.tail')
+};
 
     // Construir las 5 filas
     let html = '';
@@ -6416,7 +6421,7 @@ function updateAxieCoreHUD(axieId) {
                 ">${raza.emoji}</div>
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-size: 12px; color: #88aacc; line-height: 1;">${nombresCasilla[casilla]}</div>
-                    <div style="font-size: 14px; color: ${raza.color}; font-weight: 600; line-height: 1.3;">${raza.nombre}</div>
+                    <div style="font-size: 14px; color: ${raza.color}; font-weight: 600; line-height: 1.3;">${t('race.'+razaId) || raza.nombre}</div>
                 </div>
                 <div style="font-size: 14px; color: #fff; font-weight: 700; white-space: nowrap;">+${pct}%</div>
             </div>
@@ -6426,7 +6431,7 @@ function updateAxieCoreHUD(axieId) {
 
     // Total acumulado
     const bonusTotal = calcularBonusAxie(axieId);
-    let totalHtml = '<div style="font-weight:700;color:#aaccff;font-size:13px;margin-bottom:6px;">TOTAL:</div>';
+    let totalHtml = `<div style="font-weight:700;color:#aaccff;font-size:13px;margin-bottom:6px;">${t('axiecore.total')}:</div>`;;
     let hayBonus = false;
     for (const [tipo, valor] of Object.entries(bonusTotal)) {
         if (valor === 0) continue;
@@ -6494,17 +6499,17 @@ function updateAxieCoreHUD(axieId) {
                     ${raza.emoji} ${raza.nombre}
                 </div>
                 <div style="color:#88aacc;font-size:11px;margin-bottom:8px;">
-                    Casilla: ${row.dataset.casilla.charAt(0).toUpperCase() + row.dataset.casilla.slice(1)}
+                    ${t('axiecore.slot')}: ${nombresCasilla[row.dataset.casilla]}
                 </div>
                 <div style="color:#fff;margin-bottom:6px;">
-                    <b>Bonus actual:</b> +${(esTipo ? raza.raza : raza.parte) * 100}% ${nombreBonus}
+                    <b>${t('axiecore.current_bonus')}:</b> +${(esTipo ? raza.raza : raza.parte) * 100}% ${nombreBonus}
                 </div>
                 <div style="color:#ddeeff;font-style:italic;font-size:11px;margin-bottom:8px;">
-                    "${raza.descripcion || 'Sin descripción.'}"
+                    "${t('race.desc.' + razaId) || raza.descripcion || '-'}"
                 </div>
                 <div style="color:#88aacc;font-size:10px;border-top:1px solid rgba(0,170,255,0.2);padding-top:6px;">
-                    Como Tipo: <b style="color:#fff;">+${valorRaza}%</b><br>
-                    Como parte (Boca, Orejas, etc.): <b style="color:#fff;">+${valorParte}%</b>
+                    ${t('axiecore.as_type')}: <b style="color:#fff;">+${valorRaza}%</b><br>
+                    ${t('axiecore.as_part')}: <b style="color:#fff;">+${valorParte}%</b>
                 </div>
             `;
             mostrarTooltipAxieCore(html, row);
@@ -8070,32 +8075,32 @@ function showPauseMenu() {
     pauseMenu.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:1500;color:#fff;font-family:Arial;`;
     const totalMin = Math.floor((Date.now() - aiTrainingStartTime) / 60000);
     pauseMenu.innerHTML = `
-        <div style="font-size:56px;font-weight:bold;color:#88ddff;margin-bottom:20px;font-family:'Arial Black';">⏸️ ${isAITrainingMode ? 'ENTRENAMIENTO' : 'PAUSA'}</div>
+        <div style="font-size:56px;font-weight:bold;color:#88ddff;margin-bottom:20px;font-family:'Arial Black';">⏸️ ${isAITrainingMode ? 'ENTRENAMIENTO' : t('pause.title')}</div>
         ${isAITrainingMode ? `<div style="color:#aa88ff;font-family:monospace;font-size:16px;margin-bottom:30px;text-align:center;line-height:1.8;">🤖 Partidas: <b>${aiTrainingMatches}</b><br>⏱️ Sesión: <b>${totalMin} min</b></div>` : ''}
         <div style="margin: 20px 0; text-align: center;">
-            <div style="margin-bottom: 10px; font-size: 18px; color: #88ddff;">🔊 AUDIO</div>
+            <div style="margin-bottom: 10px; font-size: 18px; color: #88ddff;">🔊 ${t('pause.audio')}</div>
             <div style="display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 5px;">
-                    <span>Música:</span>
+                    <span>${t('pause.music')}:</span>
                     <input type="range" id="music-volume" min="0" max="1" step="0.01" value="${audio.musicVolume}" style="width: 100px;">
                 </div>
                 <div style="display: flex; align-items: center; gap: 5px;">
-                    <span>EFX:</span>
+                    <span>${t('pause.sfx')}:</span>
                     <input type="range" id="sfx-volume" min="0" max="1" step="0.01" value="${audio.sfxVolume}" style="width: 100px;">
                 </div>
                 <div style="display: flex; align-items: center; gap: 5px;">
-                    <span>Master:</span>
+                    <span>${t('pause.master')}:</span>
                     <input type="range" id="master-volume" min="0" max="1" step="0.01" value="${audio.masterVolume}" style="width: 100px;">
                 </div>
             </div>
             <div style="margin-top: 10px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <button id="btn-mute-music" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">🔇 Música</button>
-                <button id="btn-mute-sfx" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">🔇 Efectos</button>
-                <button id="btn-mute-all" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">🔇 Todo</button>
+                <button id="btn-mute-music" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">${t('pause.mute_music')}</button>
+                <button id="btn-mute-sfx" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">${t('pause.mute_sfx')}</button>
+                <button id="btn-mute-all" style="padding:8px 16px;font-size:14px;background:${audio.muted ? '#444' : '#666'};color:#fff;border:none;border-radius:4px;cursor:pointer;">${t('pause.mute_all')}</button>
             </div>
         </div>
-        <button id="btn-exit" style="padding:16px 48px;font-size:24px;font-weight:bold;background:linear-gradient(135deg,#ff4444,#cc2222);color:#fff;border:none;border-radius:12px;cursor:pointer;">${isAITrainingMode ? '🚪 Salir al Menú' : '🚪 Volver al Inicio'}</button>
-        <button id="btn-resume" style="margin-top:15px;padding:12px 36px;font-size:18px;background:rgba(255,255,255,0.1);color:#88aaff;border:2px solid rgba(136,170,255,0.3);border-radius:12px;cursor:pointer;">↩️ Reanudar</button>
+        <button id="btn-exit" style="padding:16px 48px;font-size:24px;font-weight:bold;background:linear-gradient(135deg,#ff4444,#cc2222);color:#fff;border:none;border-radius:12px;cursor:pointer;">${isAITrainingMode ? t('pause.exit_ai') : t('pause.back')}</button>
+        <button id="btn-resume" style="margin-top:15px;padding:12px 36px;font-size:18px;background:rgba(255,255,255,0.1);color:#88aaff;border:2px solid rgba(136,170,255,0.3);border-radius:12px;cursor:pointer;">${t('pause.resume')}</button>
     `;
     document.body.appendChild(pauseMenu);
     document.getElementById('btn-exit').onclick = () => isAITrainingMode ? exitAITrainingMode() : abandonGame();
@@ -8118,16 +8123,16 @@ function showPauseMenu() {
         // Better approach: store previous music volume
         if (!audio._prevMusicVolume) audio._prevMusicVolume = audio.musicVolume;
         audio.setMusicVolume(audio.muted ? audio._prevMusicVolume : 0);
-        e.target.textContent = audio.muted ? '🔇 Música' : '🔊 Música';
+        e.target.textContent = audio.muted ? t('pause.mute_music') : t('pause.unmute_music');
     });
     document.getElementById('btn-mute-sfx').addEventListener('click', () => {
         if (!audio._prevSfxVolume) audio._prevSfxVolume = audio.sfxVolume;
         audio.setSfxVolume(audio.muted ? audio._prevSfxVolume : 0);
-        e.target.textContent = audio.muted ? '🔇 Efectos' : '🔊 Efectos';
+        e.target.textContent = audio.muted ? t('pause.mute_sfx') : t('pause.unmute_sfx');
     });
     document.getElementById('btn-mute-all').addEventListener('click', () => {
         audio.setMuted(!audio.muted);
-        e.target.textContent = audio.muted ? '🔇 Todo' : '🔊 Todo';
+        e.target.textContent = audio.muted ? t('pause.mute_all') : t('pause.unmute_all');
     });
 }
 
@@ -8483,7 +8488,21 @@ async function startAIGame(axieId) {
     }, CONFIG.AXIE_SPAWN_TIME * 1000);
     updateHUDEntrenamiento();
     startGameLoop();
+
+    // Forzar actualización del HUD con el idioma actual
+    setTimeout(() => {
+        if (typeof updateLevelHUD === 'function') updateLevelHUD();
+        if (typeof updateCameraHUD === 'function') updateCameraHUD();
+        if (typeof updateAbilityHUD === 'function') updateAbilityHUD();
+        if (typeof updatePotionHUD === 'function') updatePotionHUD();
+        if (typeof updateItemHUD === 'function') updateItemHUD();
+        // Refrescar panel Axie Core con el idioma actual
+        if (typeof updateAxieCoreHUD === 'function' && typeof selectedAxieId !== 'undefined') {
+            updateAxieCoreHUD(selectedAxieId);
+        }
+    }, 100);
 }
+
 
 async function startGame(axieId) {
     setAxieActual(axieId);
@@ -8584,7 +8603,21 @@ async function startGame(axieId) {
         if (!enemyAxieSpawned) spawnEnemyAxie();
     }, CONFIG.AXIE_SPAWN_TIME * 1000);
     startGameLoop();
+
+    // Forzar actualización del HUD con el idioma actual
+    setTimeout(() => {
+        if (typeof updateLevelHUD === 'function') updateLevelHUD();
+        if (typeof updateCameraHUD === 'function') updateCameraHUD();
+        if (typeof updateAbilityHUD === 'function') updateAbilityHUD();
+        if (typeof updatePotionHUD === 'function') updatePotionHUD();
+        if (typeof updateItemHUD === 'function') updateItemHUD();
+        // Refrescar panel Axie Core con el idioma actual
+        if (typeof updateAxieCoreHUD === 'function' && typeof selectedAxieId !== 'undefined') {
+            updateAxieCoreHUD(selectedAxieId);
+        }
+    }, 100);
 }
+
 
 // ============================================================
 // TELETRANSPORTE AL NEXO (tecla B) - tipo recall de LoL
@@ -8787,7 +8820,7 @@ function togglePasiva(hab) {
 
     // Feedback en consola
     if (nuevoEstado) {
-        console.log('✅ Pasiva ACTIVADA: ' + hab.nombre + (hab.bonus ? ' | Bonus: ' + JSON.stringify(hab.bonus) : ''));
+        console.log('✅ Pasiva ACTIVADA: ' + hab.nombre + (hab.bonus ? ' | ' + t('ability.bonus') + ': ' + JSON.stringify(hab.bonus) : ''));
     } else {
         console.log('⭕ Pasiva DESACTIVADA: ' + hab.nombre);
     }
@@ -9526,12 +9559,12 @@ window.showTarget = function (target) {
     if (!target || target.isDead) { targetUI.style.display = 'none'; return; }
     targetUI.style.display = 'block';
     let name = 'Enemigo';
-    if (target.type === 'minion') name = target.isEnemy ? '🔴 Minion' : '🔵 Minion Aliado';
-    else if (target.type === 'tower') name = target.isEnemy ? '🗼 Torre Enemiga' : '🏰 Torre Aliada';
-    else if (target.type === 'nexus') name = target.isEnemy ? '🔥 Nexo Enemigo' : '💎 Nexo Aliado';
+    if (target.type === 'minion') name = (target.isEnemy ? '🔴 ' : '🔵 ') + t('target.minion');
+    else if (target.type === 'tower') name = (target.isEnemy ? '🗼 ' : '🏰 ') + t(target.isEnemy ? 'target.enemy_tower' : 'target.ally_tower');
+    else if (target.type === 'nexus') name = (target.isEnemy ? '🔥 ' : '💎 ') + t(target.isEnemy ? 'target.enemy_nexus' : 'target.ally_nexus');
     else if (target.type === 'enemy_axie') name = `🤖 ${enemyAxie ? enemyAxie.nombre : 'Axie'}`;
     else if (target.type === 'player') name = `🦊 ${currentAxieName}`;
-    else if (target.type === 'shop') name = target.isEnemy ? '🏪 Tienda Enemiga' : '🏪 Tienda Aliada';
+    else if (target.type === 'shop') name = (target.isEnemy ? '🏪 ' : '🏪 ') + t('target.shop');
 
     if (target.type === 'shop') {
         targetUI.innerHTML = `
