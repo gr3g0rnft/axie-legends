@@ -71,6 +71,7 @@ export class MenuScreen {
     }
 
     show(onStartGame, onSelectAxie) {
+        this.onPlay = onStartGame;
         this.onStartGame = onStartGame;
         this.onSelectAxie = onSelectAxie;
 
@@ -189,7 +190,7 @@ export class MenuScreen {
         `;
 
         const btn1v1 = this.createGameButton('1 vs 1', 'Duelo 1 a 1', '#44ff88', () => {
-            this.openAxieSelectModal();
+            this._mostrarModalModos();
         }, false);
         buttonsContainer.appendChild(btn1v1);
 
@@ -244,7 +245,7 @@ export class MenuScreen {
             btnJugar.style.boxShadow = '0 0 40px rgba(0, 170, 255, 0.7), inset 0 0 20px rgba(255, 255, 255, 0.2)';
         };
         btnJugar.onclick = () => {
-            this.openAxieSelectModal();
+            this._mostrarModalModos();
         };
         content.appendChild(btnJugar);
 
@@ -1039,6 +1040,88 @@ export class MenuScreen {
             toast.style.transition = 'opacity 0.5s';
             setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
         }, 3000);
+    }
+
+    _mostrarModalModos() {
+        const anterior = document.getElementById('menu-modes-modal');
+        if (anterior) anterior.remove();
+        const modal = document.createElement('div');
+        modal.id = 'menu-modes-modal';
+        modal.style.cssText = `position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.85); font-family: 'Segoe UI', Arial, sans-serif; color: #fff; padding-top: 80px; box-sizing: border-box;`;
+        const video = document.createElement('video');
+        video.src = import.meta.env.BASE_URL + 'assets/menu/menu-background.mp4';
+        video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
+        video.style.cssText = `position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.35; pointer-events: none;`;
+        modal.appendChild(video);
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 1; pointer-events: none;`;
+        modal.appendChild(overlay);
+// Overlay para tapar la marca de agua de KlingAI (esquina inferior derecha)
+const watermarkCover = document.createElement('div');
+watermarkCover.style.cssText = `
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 280px;
+    height: 60px;
+    background: radial-gradient(ellipse at bottom right, rgba(0,0,0,0.95) 30%, transparent 75%);
+    z-index: 1;
+    pointer-events: none;
+`;
+modal.appendChild(watermarkCover);
+
+        const content = document.createElement('div');
+        content.style.cssText = `position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; width: 100%; max-width: 900px; height: 100%; max-height: 100vh; padding: 60px 24px 24px 24px; box-sizing: border-box;`;
+        const title = document.createElement('div');
+        title.textContent = t('modes.select_title');
+        title.style.cssText = `font-size: 26px; font-weight: 900; letter-spacing: 3px; color: #fff; text-shadow: 0 0 10px #00aaff, 0 0 20px #00aaff, 0 4px 8px rgba(0,0,0,0.9); margin-bottom: 10px;`;
+        content.appendChild(title);
+        const grid = document.createElement('div');
+        grid.style.cssText = `display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%;`;
+        grid.appendChild(this._crearTarjetaModo('🎮', t('modes.1v1_title'), t('modes.1v1_desc'), t('modes.play'), true, () => { this._cerrarModalModos(); this.openAxieSelectModal(); }));
+        grid.appendChild(this._crearTarjetaModo('🤖', t('modes.ia_title'), t('modes.ia_desc'), t('modes.train'), true, () => { this._cerrarModalModos(); window.startAITrainingMode && window.startAITrainingMode(); }));
+        grid.appendChild(this._crearTarjetaModo('🔒', t('modes.pvp_title'), t('modes.pvp_desc'), t('modes.locked'), false, null));
+        grid.appendChild(this._crearTarjetaModo('🔒', t('modes.5v5_title'), t('modes.5v5_desc'), t('modes.locked'), false, null));
+        content.appendChild(grid);
+        modal.appendChild(content);
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `position: fixed; top: 4px; right: 4px; width: 44px; height: 44px; background: rgba(255, 68, 68, 0.9); border: 2px solid rgba(255, 200, 200, 0.9); border-radius: 8px; color: #fff; font-size: 22px; font-weight: bold; cursor: pointer; z-index: 2147483647; box-shadow: 0 0 12px rgba(255, 68, 68, 0.8);`;
+        closeBtn.onclick = () => this._cerrarModalModos();
+        modal.appendChild(closeBtn);
+        const escHandler = (e) => { if (e.key === 'Escape') { this._cerrarModalModos(); document.removeEventListener('keydown', escHandler); } };
+        document.addEventListener('keydown', escHandler);
+        modal._escHandler = escHandler;
+        document.body.appendChild(modal);
+    }
+
+    _crearTarjetaModo(emoji, titulo, desc, botonTexto, activo, onClick) {
+        const card = document.createElement('div');
+        card.style.cssText = `background: ${activo ? 'linear-gradient(135deg, rgba(0, 170, 255, 0.15), rgba(20, 20, 40, 0.95))' : 'rgba(30, 30, 30, 0.7)'}; border: 2px solid ${activo ? 'rgba(0, 170, 255, 0.7)' : 'rgba(80, 80, 80, 0.5)'}; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: ${activo ? 'pointer' : 'not-allowed'}; transition: all 0.3s ease; opacity: ${activo ? '1' : '0.6'}; min-height: 200px; justify-content: center;`;
+        if (activo) {
+        card.onmouseenter = () => {
+            card.style.transform = 'scale(0.93)';
+            card.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)';
+        };
+        card.onmouseleave = () => {
+            card.style.transform = 'scale(1)';
+            card.style.boxShadow = 'none';
+        };
+        card.onclick = onClick;
+    }
+        const emojiEl = document.createElement('div'); emojiEl.textContent = emoji; emojiEl.style.cssText = 'font-size: 44px;'; card.appendChild(emojiEl);
+        const tituloEl = document.createElement('div'); tituloEl.textContent = titulo; tituloEl.style.cssText = `font-size: 18px; font-weight: 700; color: ${activo ? '#00aaff' : '#888'}; text-align: center; line-height: 1.3;`;
+        card.appendChild(tituloEl);
+        const descEl = document.createElement('div'); descEl.textContent = desc; descEl.style.cssText = `font-size: 12px; color: #aaa; text-align: center; line-height: 1.4; margin-bottom: 8px;`;
+        card.appendChild(descEl);
+        const btnEl = document.createElement('div'); btnEl.textContent = botonTexto; btnEl.style.cssText = `margin-top: 6px; padding: 8px 20px; background: ${activo ? 'linear-gradient(135deg, #00aaff, #0088dd)' : 'rgba(80, 80, 80, 0.5)'}; color: ${activo ? '#fff' : '#666'}; font-size: 13px; font-weight: bold; border-radius: 8px; letter-spacing: 1px; white-space: nowrap;`;
+        card.appendChild(btnEl);
+        return card;
+    }
+
+    _cerrarModalModos() {
+        const modal = document.getElementById('menu-modes-modal');
+        if (modal) { if (modal._escHandler) document.removeEventListener('keydown', modal._escHandler); modal.remove(); }
     }
 
     hide() {
