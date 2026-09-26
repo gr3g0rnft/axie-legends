@@ -14,6 +14,8 @@ export class AudioManager {
         this.muted = false;
         this.initialized = false;
         
+        this.volumeListeners = [];
+        
         this.soundConfig = {
             shoot: { src: '/axie-legends/sounds/shoot.wav', volume: 0.6 },
             hit: { src: '/axie-legends/sounds/hit.wav', volume: 0.7 },
@@ -68,17 +70,26 @@ export class AudioManager {
             this.musicAudio = null;
         }
 
+        // FIX 2b: Leer SIEMPRE el volumen guardado antes de crear el audio
+        this.loadSettings();
+
         console.log(`🎶 Iniciando música de fondo (${musicFile})...`);
         try {
             this.musicAudio = new Audio(musicFile);
             this.musicAudio.loop = true;
             this.musicAudio.volume = this.musicVolume * this.masterVolume;
             
+            // Sincronizar el volumen cada vez que se reproduzca (por si cambia después)
+            this.musicAudio.addEventListener('play', () => {
+                if (this.musicAudio) {
+                    this.musicAudio.volume = this.musicVolume * this.masterVolume;
+                }
+            });
+            
             this.musicAudio.play().then(() => {
                 console.log('🎵 ¡Música sonando correctamente!');
             }).catch(err => {
-                console.warn('⚠️ Reproducción automática bloqueada por el navegador. Se activará al hacer clic.', err);
-                // Desbloqueo automático al primer clic en la página
+                console.warn('⚠️ Reproducción automática bloqueada:', err);
                 const unlock = () => {
                     this.musicAudio.play().catch(() => {});
                     window.removeEventListener('pointerdown', unlock);
@@ -98,12 +109,45 @@ export class AudioManager {
         }
     }
 
-    setMasterVolume(v) { this.masterVolume = Math.max(0, Math.min(1, v)); this.applyVolumes(); this.saveSettings(); }
-    setSfxVolume(v) { this.sfxVolume = Math.max(0, Math.min(1, v)); this.applyVolumes(); this.saveSettings(); }
-    setMusicVolume(v) { 
-        this.musicVolume = Math.max(0, Math.min(1, v)); 
+    setMasterVolume(v) {
+        this.masterVolume = Math.max(0, Math.min(1, v));
+        this.applyVolumes();
+        this.saveSettings();
+        this.notifyVolumeChange();
+        // Asegurar que la música aplica el nuevo master
+        if (this.musicAudio) {
+            this.musicAudio.volume = this.musicVolume * this.masterVolume;
+        }
+    }
+
+    setSfxVolume(v) { this.sfxVolume = Math.max(0, Math.min(1, v)); this.applyVolumes(); this.saveSettings(); this.notifyVolumeChange(); }
+
+    setMusicVolume(v) {
+        this.musicVolume = Math.max(0, Math.min(1, v));
+        if (this.musicAudio) {
+            this.musicAudio.volume = this.musicVolume * this.masterVolume;
+        }
+        this.saveSettings();
+        this.notifyVolumeChange();
+    }
+
+    // FIX 7: Apply methods that DON'T persist to localStorage
+    applyMusicVolume(v) {
+        this.musicVolume = Math.max(0, Math.min(1, v));
         if (this.musicAudio) this.musicAudio.volume = this.musicVolume * this.masterVolume;
-        this.saveSettings(); 
+        // NO saveSettings()
+    }
+    
+    applySfxVolume(v) {
+        this.sfxVolume = Math.max(0, Math.min(1, v));
+        this.applyVolumes();
+        // NO saveSettings()
+    }
+    
+    applyMasterVolume(v) {
+        this.masterVolume = Math.max(0, Math.min(1, v));
+        this.applyVolumes();
+        // NO saveSettings()
     }
     
     applyVolumes() {
@@ -116,6 +160,7 @@ export class AudioManager {
         Howler.mute(m); 
         if (this.musicAudio) this.musicAudio.muted = m;
         this.saveSettings(); 
+        this.notifyVolumeChange();
     }
 
     saveSettings() {
@@ -132,6 +177,23 @@ export class AudioManager {
             this.muted = data.muted ?? false;
             Howler.volume(this.masterVolume);
         } catch (e) { /* por defecto */ }
+    }
+
+    onVolumeChange(callback) {
+        if (typeof callback === 'function') {
+            this.volumeListeners.push(callback);
+        }
+    }
+
+    offVolumeChange(callback) {
+        this.volumeListeners = this.volumeListeners.filter(cb => cb !== callback);
+    }
+
+    notifyVolumeChange() {
+        for (const cb of this.volumeListeners) {
+            try { cb(this.musicVolume, this.sfxVolume, this.masterVolume); }
+            catch (e) { /* ignorar errores de listeners externos */ }
+        }
     }
 }
 
