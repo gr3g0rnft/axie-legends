@@ -1449,6 +1449,10 @@ function inicializarCamaraFija() {
             pointer-events: none;
         `;
         document.body.appendChild(cameraHUD);
+        // Ocultar el HUD de cámara si estamos en el menú principal
+        if (document.getElementById('menu-screen')) {
+            cameraHUD.style.display = 'none';
+        }
     }
     updateCameraHUD();
 }
@@ -8346,29 +8350,6 @@ function showMainMenu() {
         (axieId, mode) => { selectedAxieId = axieId; startGame(axieId); },
         (axieId) => { selectedAxieId = axieId; }
     );
-    setTimeout(() => {
-        if (document.getElementById('btn-ai-training')) return;
-        const btn = document.createElement('button');
-        btn.id = 'btn-ai-training';
-        btn.innerHTML = '🤖 Entrenar IA (Auto)<br><span style="font-size:11px;opacity:0.7;">IA vs IA · rondas infinitas</span>';
-        btn.style.cssText = `position:fixed;bottom:30px;right:30px;z-index:10000;padding:14px 22px;background:linear-gradient(135deg,#6644ff,#4422aa);color:#fff;border:2px solid rgba(170,140,255,0.6);border-radius:12px;font-family:Arial;font-size:14px;font-weight:bold;cursor:pointer;text-align:center;line-height:1.3;`;
-        btn.onclick = () => {
-            btn.remove();
-            const info = document.getElementById('ai-training-info');
-            if (info) info.remove();
-            startAITrainingMode();
-        };
-        document.body.appendChild(btn);
-        const stats = JSON.parse(localStorage.getItem('axie_ai_training_stats') || '{"matches":0,"totalTime":0}');
-        if (stats.matches > 0) {
-            const info = document.createElement('div');
-            info.id = 'ai-training-info';
-            info.style.cssText = `position:fixed;bottom:110px;right:30px;z-index:10000;padding:8px 14px;background:rgba(0,0,0,0.7);color:#aa88ff;border:1px solid rgba(170,140,255,0.4);border-radius:8px;font-family:monospace;font-size:11px;text-align:center;line-height:1.5;`;
-            const mins = Math.floor(stats.totalTime / 60);
-            info.innerHTML = `📊 Entrenamientos: <b>${stats.matches}</b><br>⏱️ Total: ${mins} min`;
-            document.body.appendChild(info);
-        }
-    }, 100);
 }
 
 async function startAITrainingMode() {
