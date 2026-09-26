@@ -5629,11 +5629,11 @@ function createPlayerHUD() {
 function createPotionHUD(h) {
     if (potionHUD) potionHUD.remove();
     potionHUD = document.createElement('div');
-    potionHUD.style.cssText = `width:60px;height:${h}px;background:rgba(0,0,0,0.9);border:2px solid rgba(255,255,255,0.3);border-radius:12px;padding:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;pointer-events:auto;`;
+    potionHUD.style.cssText = `width:76px;height:${h}px;background:rgba(0,0,0,0.9);border:2px solid rgba(255,255,255,0.3);border-radius:12px;padding:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;pointer-events:auto;`;
     
     const title = document.createElement('div');
     title.textContent = t('hud.potions');
-    title.style.cssText = `font-size:9px;color:#ffcc44;font-weight:bold;margin-bottom:2px;letter-spacing:1px;`;
+    title.style.cssText = `font-size:9px;color:#ffcc44;font-weight:bold;margin-bottom:2px;letter-spacing:1px;white-space:nowrap;`;
     potionHUD.appendChild(title);
 
     const hpBox = document.createElement('div');
