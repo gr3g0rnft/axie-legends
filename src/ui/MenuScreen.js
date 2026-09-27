@@ -1498,6 +1498,18 @@ export class MenuScreen {
             true
         );
 
+        // v1.0.1 - HOTFIX
+        crearVersion(
+            'patch.version_1_1',
+            'patch.date_1_1',
+            'patch.version_1_1_name',
+            [
+                'patch.v1_1_axiecore_i18n',
+                'patch.v1_1_tooltips',
+            ],
+            false
+        );
+
         // v2 - PRÓXIMAMENTE
         crearVersion(
             'patch.version_2',
