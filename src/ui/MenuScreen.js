@@ -1479,6 +1479,8 @@ export class MenuScreen {
                 'patch.v1_options',
                 'patch.v1_guide',
                 'patch.v1_potions',
+                'patch.v1_kotaro',
+                'patch.v1_deploy',
             ],
             true
         );
@@ -1492,6 +1494,7 @@ export class MenuScreen {
                 'patch.v2_diagonal',
                 'patch.v2_balance',
                 'patch.v2_sound',
+                'patch.v2_axie_core',
             ],
             false
         );

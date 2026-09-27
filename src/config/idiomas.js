@@ -286,12 +286,15 @@ const TRADUCCIONES = {
         'patch.v1_options':     '⚙️ Options modal (camera + audio + language)',
         'patch.v1_guide':       '📖 Controls guide modal',
         'patch.v1_potions':     '🧪 Potion hotkeys (D/F)',
+        'patch.v1_kotaro':      '🐯 Kotaro melee abilities + Q/W/R range tuned',
+        'patch.v1_deploy':      '🚀 Public deploy on GitHub Pages + Axie Vibeathon',
         'patch.version_2':      'Coming Soon',
         'patch.date_2':         'TBA',
         'patch.version_2_name': 'Next Update',
         'patch.v2_diagonal':    '🗺️ Diagonal lane (League-style map)',
         'patch.v2_balance':     '⚖️ Balance pass (towers & minions)',
         'patch.v2_sound':       '🔊 Enhanced sound effects',
+        'patch.v2_axie_core':   '🧬 Axie Core for all 7 Axies',
     },
     es: {
         // Menú principal
@@ -570,12 +573,15 @@ const TRADUCCIONES = {
         'patch.v1_options':     '⚙️ Modal de opciones (cámara + audio + idioma)',
         'patch.v1_guide':       '📖 Modal de guía de controles',
         'patch.v1_potions':     '🧪 Atajos de pociones (D/F)',
+        'patch.v1_kotaro':      '🐯 Habilidades melee de Kotaro + rangos Q/W/R ajustados',
+        'patch.v1_deploy':      '🚀 Deploy público en GitHub Pages + Axie Vibeathon',
         'patch.version_2':      'Próximamente',
         'patch.date_2':         'Por definir',
         'patch.version_2_name': 'Próxima Actualización',
         'patch.v2_diagonal':    '🗺️ Carril diagonal (mapa estilo League)',
         'patch.v2_balance':     '⚖️ Ajuste de balance (torres y minions)',
         'patch.v2_sound':       '🔊 Efectos de sonido mejorados',
+        'patch.v2_axie_core':   '🧬 Axie Core para los 7 Axies',
     }
 };
 
