@@ -638,12 +638,14 @@ export class MenuScreen {
             left: 20px;
             font-size: 11px;
             letter-spacing: 3px;
-            color: #88ddff;
-            opacity: 0.8;
+            color: #ffdd66;
+            opacity: 1.0;
+            text-shadow: 0 0 8px rgba(255, 220, 100, 0.7);
+            font-weight: 700;
             text-transform: uppercase;
             z-index: 2;
         `;
-        roleOverlay.textContent = 'EL LÍDER FEROZ';
+        roleOverlay.textContent = '';
         previewStage.appendChild(roleOverlay);
 
         mainRow.appendChild(previewStage);
@@ -710,6 +712,13 @@ export class MenuScreen {
         this.previewer.start();
 
         if (axies.length) this.selectAxieInModal(axies[0]);
+
+        // Forzar actualización de textos con el idioma actual
+        setTimeout(() => {
+            if (axies.length > 0 && this.selectedAxie === axies[0].id) {
+                this.selectAxieInModal(axies[0]);
+            }
+        }, 50);
 
         // Boton jugar
         const playBtn = document.createElement('button');
@@ -1564,8 +1573,16 @@ export class MenuScreen {
             nameEl.style.textShadow = `0 0 18px ${axie.color || '#44ff88'}55`;
         }
         if (roleEl) {
-            // Mostrar la DESCRIPCIÓN corta del Axie, no el id
-            roleEl.textContent = axie.descripcion ? axie.descripcion.toUpperCase() : '';
+            // Mostrar la DESCRIPCIÓN corta del Axie, traducida con t()
+            const descKey = 'axie.desc.' + axie.id;
+            const descTrad = t(descKey);
+            // Si t() falla (devuelve la clave), usar vacío
+            if (descTrad && !descTrad.startsWith('axie.desc.')) {
+                roleEl.textContent = descTrad.toUpperCase();
+            } else {
+                roleEl.textContent = '';
+                console.warn('⚠️ Falta traducción para:', descKey);
+            }
         }
 
         // Fondo splash (imagen JPG del Axie)

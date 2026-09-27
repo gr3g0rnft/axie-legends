@@ -263,11 +263,31 @@ const TRADUCCIONES = {
         'hab.kotaro.e.desc': 'Dancing with a thousand swords increases damage and crit chance.',
         'hab.kotaro.r.desc': 'Demon execution: deadly long-range strike.',
 
+        // Descripciones de los Axies
+        'axie.desc.bing':      'THE FIERCE LEADER',
+        'axie.desc.kibo':      'SWIFT AS THE WIND',
+        'axie.desc.kotaro':    'CUNNING AND STRATEGIC',
+        'axie.desc.paladill':  'BEARER OF JUSTICE',
+        'axie.desc.pomodoro':  'SMALL BUT DEADLY',
+        'axie.desc.tripp':     'MYSTICAL AND POWERFUL',
+        'axie.desc.xia':       'SHINES WITH HER OWN LIGHT',
+
         // Victoria / Derrota
         'end.victory':        '🏆 YOU WIN 🏆',
         'end.defeat':         '💀 DEFEAT 💀',
         'end.victory_desc':   'You destroyed the Enemy Nexus!',
         'end.home':           '🏠 Back to Home',
+
+        // Bonus del Axie Core
+        'bonus.critico':       'Critical',
+        'bonus.velocidad':     'Speed',
+        'bonus.vida':          'Health',
+        'bonus.defensa':       'Defense',
+        'bonus.velAtaque':     'Attack Speed',
+        'bonus.dano':          'Damage',
+        'bonus.mana':          'Mana',
+        'bonus.danoMagico':    'Magic Damage',
+        'bonus.vampirismo':    'Lifesteal',
 
         // ML.7 - Modal PATCH NOTES
         'patch.title':          '📜 PATCH NOTES',
@@ -550,11 +570,31 @@ const TRADUCCIONES = {
         'hab.kotaro.e.desc': 'Bailar de mil espadas aumenta daño y probabilidad de crítico.',
         'hab.kotaro.r.desc': 'Ejecución demoníaca: golpe mortal de largo alcance.',
 
+        // Descripciones de los Axies
+        'axie.desc.bing':      'EL LÍDER FEROZ',
+        'axie.desc.kibo':      'ÁGIL COMO EL VIENTO',
+        'axie.desc.kotaro':    'ASTUTO Y ESTRATÉGICO',
+        'axie.desc.paladill':  'PORTADOR DE LA JUSTICIA',
+        'axie.desc.pomodoro':  'PEQUEÑO PERO LETAL',
+        'axie.desc.tripp':     'MÍSTICO Y PODEROSO',
+        'axie.desc.xia':       'BRILLA CON LUZ PROPIA',
+
         // Victoria / Derrota
         'end.victory':        '🏆 GANASTE 🏆',
         'end.defeat':         '💀 DERROTA 💀',
         'end.victory_desc':   '¡Has destruido el Nexo Enemigo!',
         'end.home':           '🏠 Ir a Inicio',
+
+        // Bonus del Axie Core
+        'bonus.critico':       'Crítico',
+        'bonus.velocidad':     'Velocidad',
+        'bonus.vida':          'Vida',
+        'bonus.defensa':       'Defensa',
+        'bonus.velAtaque':     'Vel. Ataque',
+        'bonus.dano':          'Daño',
+        'bonus.mana':          'Maná',
+        'bonus.danoMagico':    'Daño Mágico',
+        'bonus.vampirismo':    'Vampirismo',
 
         // ML.7 - Modal PATCH NOTES
         'patch.title':          '📜 NOTAS DE PARCHE',
