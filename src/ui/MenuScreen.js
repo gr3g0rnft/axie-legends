@@ -333,7 +333,7 @@ export class MenuScreen {
 
         bottomBar.appendChild(crearBotonInferior('menu-guide-btn', t('menu.guide'), () => this._mostrarModalGuia()));
         bottomBar.appendChild(crearBotonInferior('menu-options-btn', t('menu.options'), () => this._mostrarModalOpciones()));
-        bottomBar.appendChild(crearBotonInferior('menu-patch-btn', t('menu.patch')));
+        bottomBar.appendChild(crearBotonInferior('menu-patch-btn', t('menu.patch'), () => this._mostrarModalPatch()));
 
         const separador = document.createElement('div');
         separador.style.cssText = `
@@ -1290,6 +1290,251 @@ export class MenuScreen {
 
     _cerrarModalOpciones() {
         const modal = document.getElementById('menu-options-modal');
+        if (modal) {
+            if (modal._escHandler) {
+                document.removeEventListener('keydown', modal._escHandler);
+            }
+            modal.remove();
+        }
+    }
+
+    // =========================================
+    // ML.7 - Modal PATCH NOTES
+    // =========================================
+    _mostrarModalPatch() {
+        const anterior = document.getElementById('menu-patch-modal');
+        if (anterior) anterior.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'menu-patch-modal';
+        modal.style.cssText = `
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #fff;
+            padding: 20px;
+        `;
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            position: relative;
+            background: linear-gradient(160deg, rgba(20,24,48,0.98), rgba(10,12,28,0.98));
+            border: 2px solid rgba(0, 170, 255, 0.5);
+            border-radius: 16px;
+            box-shadow: 0 0 60px rgba(0, 170, 255, 0.25);
+            padding: 30px 40px;
+            width: 100%;
+            max-width: 640px;
+            max-height: 90vh;
+            overflow-y: auto;
+        `;
+
+        // Título
+        const title = document.createElement('div');
+        title.textContent = t('patch.title');
+        title.style.cssText = `
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(0, 170, 255, 0.6);
+            margin-bottom: 6px;
+            text-align: center;
+        `;
+        panel.appendChild(title);
+
+        // Subtítulo
+        const sub = document.createElement('div');
+        sub.textContent = t('patch.subtitle');
+        sub.style.cssText = `
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: #88aaff;
+            text-align: center;
+            margin-bottom: 24px;
+            opacity: 0.8;
+        `;
+        panel.appendChild(sub);
+
+        // Contenedor de la timeline
+        const timeline = document.createElement('div');
+        timeline.style.cssText = `
+            position: relative;
+            padding-left: 30px;
+            border-left: 2px solid rgba(0, 170, 255, 0.3);
+            margin-left: 10px;
+        `;
+
+        // Función auxiliar para crear una versión
+        const crearVersion = (versionKey, dateKey, nameKey, itemsKeys, esActual = false) => {
+            const version = document.createElement('div');
+            version.style.cssText = `
+                position: relative;
+                margin-bottom: 30px;
+            `;
+
+            // Punto en la timeline
+            const dot = document.createElement('div');
+            dot.style.cssText = `
+                position: absolute;
+                left: -38px;
+                top: 6px;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: ${esActual ? 'linear-gradient(135deg, #44ff88, #22aa66)' : 'rgba(0, 170, 255, 0.5)'};
+                border: 2px solid ${esActual ? '#44ff88' : 'rgba(0, 170, 255, 0.8)'};
+                box-shadow: 0 0 12px ${esActual ? 'rgba(68, 255, 136, 0.6)' : 'rgba(0, 170, 255, 0.4)'};
+            `;
+            version.appendChild(dot);
+
+            // Cabecera de versión
+            const header = document.createElement('div');
+            header.style.cssText = `
+                display: flex;
+                align-items: baseline;
+                gap: 10px;
+                margin-bottom: 4px;
+            `;
+
+            const vNum = document.createElement('div');
+            vNum.textContent = t(versionKey);
+            vNum.style.cssText = `
+                font-size: 20px;
+                font-weight: 900;
+                color: ${esActual ? '#44ff88' : '#88ddff'};
+                letter-spacing: 1px;
+                text-shadow: 0 0 10px ${esActual ? 'rgba(68, 255, 136, 0.5)' : 'rgba(136, 221, 255, 0.4)'};
+            `;
+            header.appendChild(vNum);
+
+            const vName = document.createElement('div');
+            vName.textContent = t(nameKey);
+            vName.style.cssText = `
+                font-size: 12px;
+                font-weight: 600;
+                color: #aaccff;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+            `;
+            header.appendChild(vName);
+
+            version.appendChild(header);
+
+            // Fecha
+            const date = document.createElement('div');
+            date.textContent = t(dateKey);
+            date.style.cssText = `
+                font-size: 11px;
+                color: #88aaff;
+                opacity: 0.7;
+                margin-bottom: 12px;
+                letter-spacing: 1px;
+            `;
+            version.appendChild(date);
+
+            // Lista de cambios
+            const list = document.createElement('div');
+            list.style.cssText = `
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            `;
+
+            itemsKeys.forEach((itemKey) => {
+                const item = document.createElement('div');
+                item.textContent = t(itemKey);
+                item.style.cssText = `
+                    font-size: 13px;
+                    color: #ddeeff;
+                    padding: 4px 0;
+                    line-height: 1.4;
+                `;
+                list.appendChild(item);
+            });
+
+            version.appendChild(list);
+            timeline.appendChild(version);
+        };
+
+        // v1.0.0 - ACTUAL
+        crearVersion(
+            'patch.version_1',
+            'patch.date_1',
+            'patch.version_1_name',
+            [
+                'patch.v1_camera',
+                'patch.v1_indicators',
+                'patch.v1_abilities',
+                'patch.v1_levels',
+                'patch.v1_axiecore',
+                'patch.v1_languages',
+                'patch.v1_modes',
+                'patch.v1_axie_select',
+                'patch.v1_options',
+                'patch.v1_guide',
+                'patch.v1_potions',
+            ],
+            true
+        );
+
+        // v2 - PRÓXIMAMENTE
+        crearVersion(
+            'patch.version_2',
+            'patch.date_2',
+            'patch.version_2_name',
+            [
+                'patch.v2_diagonal',
+                'patch.v2_balance',
+                'patch.v2_sound',
+            ],
+            false
+        );
+
+        panel.appendChild(timeline);
+
+        // Botón de cerrar
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 68, 68, 0.9);
+            border: 2px solid rgba(255, 200, 200, 0.9);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+        `;
+        closeBtn.onclick = () => this._cerrarModalPatch();
+        panel.appendChild(closeBtn);
+
+        modal.appendChild(panel);
+        document.body.appendChild(modal);
+
+        // Cerrar con Escape
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this._cerrarModalPatch();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        modal._escHandler = escHandler;
+    }
+
+    _cerrarModalPatch() {
+        const modal = document.getElementById('menu-patch-modal');
         if (modal) {
             if (modal._escHandler) {
                 document.removeEventListener('keydown', modal._escHandler);
