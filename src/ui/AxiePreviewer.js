@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Cache de GLTF compartida: si abres el menu 2 veces, no re-descarga.
 const gltfCache = new Map();
@@ -64,6 +65,19 @@ export class AxiePreviewer {
         this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
         this.camera.position.set(0, 1.35, 4.2);
         this.camera.lookAt(0, 1.0, 0);
+
+        // OrbitControls para rotar con el ratón
+        this.controls = new OrbitControls(this.camera, this.canvas);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        this.controls.enablePan = false;
+        this.controls.enableZoom = true;
+        this.controls.minDistance = 2.5;
+        this.controls.maxDistance = 8.0;
+        this.controls.minPolarAngle = 0.2;
+        this.controls.maxPolarAngle = Math.PI / 2 - 0.05;
+        this.controls.target.set(0, 1.0, 0);
+        this.controls.enabled = false;  // se habilita tras cargar modelo
 
         // Luces
         this.scene.add(new THREE.AmbientLight(0x404060, 1.1));
@@ -249,7 +263,11 @@ export class AxiePreviewer {
             if (document.hidden) return; // ahorro GPU en pestana oculta
             const dt = Math.min(this._clock.getDelta(), 0.05);
             if (this.mixer) this.mixer.update(dt);
-            this.pivot.rotation.y += dt * 0.6; // giro lento tipo vitrina
+            if (this.controls && this.controls.enabled) {
+                this.controls.update();
+            } else {
+                this.pivot.rotation.y += dt * 0.6; // giro lento tipo vitrina
+            }
             this.renderer.render(this.scene, this.camera);
         };
         this._raf = requestAnimationFrame(tick);
