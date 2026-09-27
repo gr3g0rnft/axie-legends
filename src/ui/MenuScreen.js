@@ -352,6 +352,7 @@ export class MenuScreen {
             setIdioma('es');
             this._actualizarTextos();
             this._actualizarEstilosIdioma();
+            if (typeof window.refreshAxieCoreLanguage === 'function') window.refreshAxieCoreLanguage();
         };
         bottomBar.appendChild(btnES);
 
@@ -360,6 +361,7 @@ export class MenuScreen {
             setIdioma('en');
             this._actualizarTextos();
             this._actualizarEstilosIdioma();
+            if (typeof window.refreshAxieCoreLanguage === 'function') window.refreshAxieCoreLanguage();
         };
         btnEN.style.background = 'linear-gradient(135deg, rgba(0, 170, 255, 0.4), rgba(0, 102, 204, 0.3))';
         btnEN.style.color = '#fff';
@@ -1271,6 +1273,7 @@ export class MenuScreen {
                     el.textContent = t(el.dataset.i18n);
                 });
             }
+            if (typeof window.refreshAxieCoreLanguage === 'function') window.refreshAxieCoreLanguage();
         };
         document.getElementById('opt-lang-en').onclick = () => {
             setIdioma('en');
@@ -1284,6 +1287,7 @@ export class MenuScreen {
                     el.textContent = t(el.dataset.i18n);
                 });
             }
+            if (typeof window.refreshAxieCoreLanguage === 'function') window.refreshAxieCoreLanguage();
         };
 
         // Cerrar con Escape
