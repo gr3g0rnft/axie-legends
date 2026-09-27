@@ -1308,6 +1308,12 @@ function updatePlayerHealthBarSprite() {
 }
 
 const scene = new THREE.Scene();
+// M-diagonal: grupo raíz para rotar toda la escena 45°
+const sceneRoot = new THREE.Group();
+scene.add(sceneRoot);
+// M-diagonal: rotar la escena -45° para que el carril
+// se vea en diagonal con el jugador abajo-izquierda
+sceneRoot.rotation.y = (-3 * Math.PI) / 4;   // -135 grados
 scene.background = new THREE.Color(0x0a0a1a);
 scene.fog = new THREE.Fog(0x0a0a1a, 35, 55);
 
@@ -1544,7 +1550,7 @@ function showMoveIndicator(x, z) {
     moveIndicator.add(dot);
     moveIndicator.position.set(x, GROUND_Y + 0.06, z);
     moveIndicator.renderOrder = 999;
-    scene.add(moveIndicator);
+    sceneRoot.add(moveIndicator);
     moveIndicatorTimer = MOVE_INDICATOR_DURATION;
 }
 
@@ -1623,7 +1629,7 @@ function showTargetIndicator(target) {
 
     targetIndicator.position.set(obj.position.x, GROUND_Y + 0.04, obj.position.z);
     targetIndicator.renderOrder = 998;
-    scene.add(targetIndicator);
+    sceneRoot.add(targetIndicator);
 }
 
 function updateTargetIndicator(delta) {
@@ -1707,6 +1713,17 @@ function actualizarApuntado(delta) {
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
     const puntoSuelo = new THREE.Vector3();
     const haySuelo = raycaster.ray.intersectPlane(plane, puntoSuelo);
+
+    // DES-ROTAR para compensar sceneRoot.rotation.y = -135°
+    if (haySuelo) {
+        const ROT_SCENE = (-3 * Math.PI) / 4;
+        const cos = Math.cos(-ROT_SCENE);
+        const sin = Math.sin(-ROT_SCENE);
+        const wx = puntoSuelo.x;
+        const wz = puntoSuelo.z;
+        puntoSuelo.x = wx * cos - wz * sin;
+        puntoSuelo.z = wx * sin + wz * cos;
+    }
 
     // Recoger todos los enemigos vivos
     const selectables = [];
@@ -1871,7 +1888,7 @@ function actualizarHighlightApuntado() {
     aimHighlight.rotation.x = -Math.PI / 2;
     aimHighlight.position.set(obj.position.x, GROUND_Y + 0.06, obj.position.z);
     aimHighlight.renderOrder = 1000;
-    scene.add(aimHighlight);
+    sceneRoot.add(aimHighlight);
 }
 
 // --- M7.5: aro pequeño de la Q sobre el suelo (sin enemigo) ---
@@ -1901,7 +1918,7 @@ function actualizarAimGroundIndicator(pos) {
     aimGroundIndicator.rotation.x = -Math.PI / 2;
     aimGroundIndicator.position.set(pos.x, GROUND_Y + 0.06, pos.z);
     aimGroundIndicator.renderOrder = 1004;
-    scene.add(aimGroundIndicator);
+    sceneRoot.add(aimGroundIndicator);
 }
 
 // --- M3.3: Lanzar la habilidad apuntada al objetivo actual ---
@@ -2063,7 +2080,7 @@ function crearIndicadorArea(hab) {
     aimAreaIndicator.add(border);
 
     aimAreaIndicator.renderOrder = 1001;
-    scene.add(aimAreaIndicator);
+    sceneRoot.add(aimAreaIndicator);
 }
 
 // --- M2.4: actualizar posición del círculo cada frame ---
@@ -2095,6 +2112,15 @@ function actualizarApuntadoArea(delta) {
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
     const punto = new THREE.Vector3();
     if (!raycaster.ray.intersectPlane(plane, punto)) return;
+
+    // DES-ROTAR para compensar sceneRoot.rotation.y = -135°
+    const ROT_SCENE = (-3 * Math.PI) / 4;
+    const cos = Math.cos(-ROT_SCENE);
+    const sin = Math.sin(-ROT_SCENE);
+    const wx = punto.x;
+    const wz = punto.z;
+    punto.x = wx * cos - wz * sin;
+    punto.z = wx * sin + wz * cos;
 
     // Limitar al rango desde el Axie
     const origen = playerModel.position.clone();
@@ -2193,7 +2219,7 @@ function lanzarHabilidadArea() {
     anillo.position.copy(pos);
     anillo.position.y = GROUND_Y + 0.06;
     anillo.renderOrder = 1002;
-    scene.add(anillo);
+    sceneRoot.add(anillo);
 
     // Guardar para animar
     if (typeof ondasActivas === 'undefined') {
@@ -2350,7 +2376,7 @@ function crearConoChannel(hab) {
         playerModel.position.z
     );
 
-    scene.add(channelIndicator);
+    sceneRoot.add(channelIndicator);
 }
 
 // --- M6.3c: crear el cono visual de apuntado (R) ---
@@ -2404,7 +2430,7 @@ function crearIndicadorApuntadoChannel(hab) {
     );
     aimingChannelIndicator.rotation.y = playerModel.rotation.y;
 
-    scene.add(aimingChannelIndicator);
+    sceneRoot.add(aimingChannelIndicator);
 }
 
 // --- M6.3c: iniciar apuntado del cono ---
@@ -2465,6 +2491,15 @@ function actualizarApuntadoChannel(delta) {
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
     const punto = new THREE.Vector3();
     if (!raycaster.ray.intersectPlane(plane, punto)) return;
+
+    // DES-ROTAR para compensar sceneRoot.rotation.y = -135°
+    const ROT_SCENE = (-3 * Math.PI) / 4;
+    const cos = Math.cos(-ROT_SCENE);
+    const sin = Math.sin(-ROT_SCENE);
+    const wx = punto.x;
+    const wz = punto.z;
+    punto.x = wx * cos - wz * sin;
+    punto.z = wx * sin + wz * cos;
 
     const dx = punto.x - playerModel.position.x;
     const dz = punto.z - playerModel.position.z;
@@ -2612,7 +2647,7 @@ function dispararRafagaChannel() {
     anillo.rotation.x = -Math.PI / 2;
     anillo.position.set(puntaX, GROUND_Y + 0.06, puntaZ);
     anillo.renderOrder = 1004;
-    scene.add(anillo);
+    sceneRoot.add(anillo);
 
     // Guardar para animar (ya existe ondasActivas)
     if (typeof ondasActivas !== 'undefined') {
@@ -2870,7 +2905,7 @@ function procesarLanes() {
                 }
             }
         });
-        scene.add(m);
+        sceneRoot.add(m);
         const bboxFinal = new THREE.Box3().setFromObject(m);
         if (bboxFinal.max.y > maxTopY) maxTopY = bboxFinal.max.y;
     });
@@ -2939,7 +2974,7 @@ class Nexus {
         this.group.add(hb.sprite);
         this.spriteMat = hb.spriteMat;
         this.group.position.set(x, GROUND_Y, z);
-        scene.add(this.group);
+        sceneRoot.add(this.group);
         this.position = new THREE.Vector3(x, 0, z);
     }
 
@@ -3016,7 +3051,7 @@ class Nexus {
             p.userData.vel = new THREE.Vector3((Math.random() - 0.5) * 8, Math.random() * 6, (Math.random() - 0.5) * 8);
             p.userData.life = 1.5 + Math.random() * 1.5;
             p.userData.maxLife = p.userData.life;
-            scene.add(p);
+            sceneRoot.add(p);
             this.explosionParticles.push(p);
         }
     }
@@ -3057,7 +3092,7 @@ class Shop {
         const useGLB = isEnemy ? !!CONFIG.SHOP_GLB_ENEMY : !!CONFIG.SHOP_GLB_ALLY;
         if (useGLB) this.loadShopGLB(isEnemy);
         else this.buildProceduralShop(isEnemy);
-        scene.add(this.group);
+        sceneRoot.add(this.group);
     }
 
     loadShopGLB(isEnemy) {
@@ -3361,7 +3396,7 @@ class TowerProjectile {
         this.totalDist = this.mesh.position.distanceTo(
             new THREE.Vector3(target.group.position.x, this.targetY, target.group.position.z)
         );
-        scene.add(this.mesh);
+        sceneRoot.add(this.mesh);
     }
 
     update(delta) {
@@ -3649,7 +3684,7 @@ class PlayerProjectile {
         }
 
         this.mesh.position.copy(startPos);
-        scene.add(this.mesh);
+        sceneRoot.add(this.mesh);
         this.startPos = startPos.clone();
         this.endPos = target.group.position.clone(); this.endPos.y = startPos.y;
         this.progress = 0;
@@ -3768,7 +3803,7 @@ class AxieTower {
         this.group.add(hb.sprite);
         this.spriteMat = hb.spriteMat;
         this.group.position.set(x, GROUND_Y, z);
-        scene.add(this.group);
+        sceneRoot.add(this.group);
         this.position = new THREE.Vector3(x, 0, z);
         this.projectiles = [];
         this.loadTowerGLB(tier);
@@ -4121,7 +4156,7 @@ class Minion {
 
         this.group.rotation.y = isEnemy ? Math.PI : 0;
         this.group.position.set(x, GROUND_Y - 0.5, z);
-        scene.add(this.group);
+        sceneRoot.add(this.group);
         this.mesh = this.group;
     }
 
@@ -5500,6 +5535,15 @@ function getGroundIntersection(event) {
     const ip = new THREE.Vector3();
     const intersectPoint = raycaster.ray.intersectPlane(plane, ip);
     if (intersectPoint) {
+        // DES-ROTAR para compensar sceneRoot.rotation.y = -135°
+        const ROT_SCENE = (-3 * Math.PI) / 4;
+        const cos = Math.cos(-ROT_SCENE);
+        const sin = Math.sin(-ROT_SCENE);
+        const wx = intersectPoint.x;
+        const wz = intersectPoint.z;
+        intersectPoint.x = wx * cos - wz * sin;
+        intersectPoint.z = wx * sin + wz * cos;
+
         intersectPoint.x = Math.max(-17, Math.min(17, intersectPoint.x));
         intersectPoint.z = Math.max(-26, Math.min(26, intersectPoint.z));
         intersectPoint.y = GROUND_Y;
@@ -5527,7 +5571,7 @@ function loadSelectedAxie(axieId) {
             smoothPlayerPos.copy(playerSpawnPosition);
             smoothPlayerPos.y = GROUND_Y;
             playerModel.traverse((n) => { if (n.isMesh) { n.castShadow = false; n.receiveShadow = false; } });
-            scene.add(playerModel);
+            sceneRoot.add(playerModel);
             attachPlayerHealthBar();
             mixer = new THREE.AnimationMixer(playerModel);
             // Los GLB traen DOS juegos de clips: genericos (Idle, Walk) y con arma
@@ -5586,7 +5630,7 @@ function loadDefaultAxie() {
             playerModel.position.y = GROUND_Y;
             smoothPlayerPos.copy(playerSpawnPosition);
             smoothPlayerPos.y = GROUND_Y;
-            scene.add(playerModel);
+            sceneRoot.add(playerModel);
             attachPlayerHealthBar();
             mixer = new THREE.AnimationMixer(playerModel);
             const clipIdle = gltf.animations.find(c => c.name.toLowerCase() === 'idle') || gltf.animations[0];
@@ -5603,7 +5647,7 @@ function loadDefaultAxie() {
             const fb = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 1), new THREE.MeshStandardMaterial({ color: 0xff4444 }));
             fb.position.copy(playerSpawnPosition);
             fb.position.y = GROUND_Y;
-            scene.add(fb);
+            sceneRoot.add(fb);
             playerModel = fb;
             attachPlayerHealthBar();
             smoothPlayerPos.copy(playerSpawnPosition);
@@ -6069,7 +6113,7 @@ function givePlayerExp(amount) {
         if (playerModel) {
             const flash = new THREE.PointLight(0x00aaff, 3.0, 8.0);
             flash.position.set(playerModel.position.x, GROUND_Y + 1.5, playerModel.position.z);
-            scene.add(flash);
+            sceneRoot.add(flash);
             setTimeout(() => scene.remove(flash), 400);
         }
     }
@@ -6485,7 +6529,7 @@ function updateAxieCoreHUD(axieId) {
         if (valor === 0) continue;
         hayBonus = true;
         const pct = (valor * 100).toFixed(1);
-        const nombreTipo = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+        const nombreTipo = t('bonus.' + tipo) || tipo;
         const descripcion = (typeof DESCRIPCIONES_BONUS !== 'undefined' && DESCRIPCIONES_BONUS[tipo]) 
             ? DESCRIPCIONES_BONUS[tipo] 
             : 'Sin descripción disponible.';
@@ -6507,7 +6551,7 @@ function updateAxieCoreHUD(axieId) {
     document.querySelectorAll('.axie-core-total-row').forEach((row) => {
         const tipo = row.dataset.bonus;
         const desc = row.dataset.desc;
-        const nombreTipo = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+        const nombreTipo = t('bonus.' + tipo) || tipo;
         row.addEventListener('mouseenter', () => {
             // Limpiar fondo de todas las filas primero
             document.querySelectorAll('.axie-core-row, .axie-core-total-row').forEach((r) => {
@@ -6832,7 +6876,7 @@ function spawnEnemyAxie() {
         enemyAxieModel.scale.set(escala, escala, escala);
         enemyAxieModel.rotation.y = Math.PI;
         enemyAxieModel.traverse((n) => { if (n.isMesh) { n.castShadow = false; n.receiveShadow = false; } });
-        scene.add(enemyAxieModel);
+        sceneRoot.add(enemyAxieModel);
         enemyAxieMixer = new THREE.AnimationMixer(enemyAxieModel);
         // Mismo criterio que el jugador: si el Axie lleva arma, se usan los clips
         // con arma (Cannon.Idle, Sword.Walk...) en vez de los genericos.
@@ -6877,7 +6921,7 @@ function crearEnemyAxieFallback(axieData) {
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
     body.position.y = 0.6;
     group.add(body);
-    scene.add(group);
+    sceneRoot.add(group);
     enemyAxieModel = group;
     enemyAxieSpawned = true;
     const hb = createHealthBar(ENEMY_HEALTH_SEGMENTS, true);
@@ -8987,7 +9031,7 @@ function aplicarHabilidadArea(hab) {
     anillo.rotation.x = -Math.PI / 2;
     anillo.position.copy(centro);
     anillo.position.y = GROUND_Y + 0.06;
-    scene.add(anillo);
+    sceneRoot.add(anillo);
     ondasActivas.push({ mesh: anillo, t: 0 });
 
     console.log('💥 ' + hab.nombre + ' | impactos: ' + impactos + ' | MP: ' + Math.floor(playerMana));
