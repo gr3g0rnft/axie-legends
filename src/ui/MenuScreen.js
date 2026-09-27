@@ -1737,8 +1737,12 @@ export class MenuScreen {
             const base = import.meta.env.BASE_URL || '/';
             const cleanPath = iconoSrc.startsWith('/') ? iconoSrc.slice(1) : iconoSrc;
             const cleanBase = base.endsWith('/') ? base : base + '/';
+            // Zoom específico por habilidad
+            let escalaZoomModal = 1.3;
+            if (key === 'Q') escalaZoomModal = 1.5;
+            if (key === 'E') escalaZoomModal = 2.0;
             img.src = cleanBase + cleanPath;
-            img.style.cssText = `width: 100%; height: 100%; object-fit: cover; border-radius: 6px;`;
+            img.style.cssText = `width: 100%; height: 100%; object-fit: cover; object-position: center; transform: scale(${escalaZoomModal}); border-radius: 6px;`;
             img.onerror = () => { img.remove(); iconContainer.textContent = '🎯'; iconContainer.style.fontSize = '20px'; };
             iconContainer.appendChild(img);
         } else {

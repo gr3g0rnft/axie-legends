@@ -84,9 +84,9 @@ export const HABILIDADES_POR_AXIE = {
             color: '#88ccff',
             tipo: 'target',
             niveles: {
-                1: { mana: 35, cooldown: 8.0, rango: 4.5, dano: 60 },
-                2: { mana: 40, cooldown: 7.0, rango: 5.0, dano: 90 },
-                3: { mana: 45, cooldown: 6.0, rango: 5.5, dano: 130 }
+                1: { mana: 35, cooldown: 8.0, rango: 2.2, dano: 60 },
+                2: { mana: 40, cooldown: 7.0, rango: 2.5, dano: 90 },
+                3: { mana: 45, cooldown: 6.0, rango: 2.8, dano: 130 }
             }
         },
         w: {
@@ -97,9 +97,9 @@ export const HABILIDADES_POR_AXIE = {
             color: '#ffcc88',
             tipo: 'area',
             niveles: {
-                1: { mana: 25, cooldown: 14.0, rango: 5.0, radio: 2.0, dano: 30, efecto: 'stun' },
-                2: { mana: 30, cooldown: 12.0, rango: 5.0, radio: 2.3, dano: 50, efecto: 'stun' },
-                3: { mana: 35, cooldown: 10.0, rango: 5.0, radio: 2.6, dano: 75, efecto: 'stun' }
+                1: { mana: 25, cooldown: 14.0, rango: 2.5, radio: 1.6, dano: 30, efecto: 'stun' },
+                2: { mana: 30, cooldown: 12.0, rango: 2.8, radio: 1.8, dano: 50, efecto: 'stun' },
+                3: { mana: 35, cooldown: 10.0, rango: 3.0, radio: 2.0, dano: 75, efecto: 'stun' }
             }
         },
         e: {
@@ -124,9 +124,9 @@ export const HABILIDADES_POR_AXIE = {
             tipo: 'ultimate',
             subtipo: 'target',
             niveles: {
-                1: { mana: 80, cooldown: 80.0, rango: 12.0, dano: 200 },
-                2: { mana: 90, cooldown: 70.0, rango: 12.0, dano: 300 },
-                3: { mana: 100, cooldown: 60.0, rango: 12.0, dano: 420 }
+                1: { mana: 80, cooldown: 80.0, rango: 3.0, dano: 200 },
+                2: { mana: 90, cooldown: 70.0, rango: 3.5, dano: 300 },
+                3: { mana: 100, cooldown: 60.0, rango: 4.0, dano: 420 }
             }
         }
     }

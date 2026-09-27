@@ -3526,6 +3526,7 @@ function aplicarDanoMeleeJugador(target, dmg) {
     const wasNexus = target.type === 'nexus';
     const wasMinion = target.type === 'minion';
 
+    // Axie enemigo
     if (wasEnemyAxie && enemyAxie) {
         const prev = enemyAxie.health;
         enemyAxieTakeDamage(dmg);
@@ -3535,23 +3536,68 @@ function aplicarDanoMeleeJugador(target, dmg) {
         }
         return;
     }
+
+    // Torres: usar el objeto correcto (target.ref o target mismo)
+    if (wasTower) {
+        const towerRef = target.ref || target;
+        if (towerRef && towerRef.health !== undefined) {
+            towerRef.health -= dmg;
+            if (towerRef.updateHealthBar) towerRef.updateHealthBar();
+            if (towerRef.flashHit) towerRef.flashHit();
+            if (towerRef.health <= 0 && towerRef.die) {
+                towerRef.die('player');
+                givePlayerGold(ECONOMY.REWARD_TOWER_KILL, '🗼 Torre destruida');
+                givePlayerExp(100);
+            }
+        } else {
+            console.warn('⚠️ Torre sin health:', target);
+        }
+        return;
+    }
+
+    // Nexo
+    if (wasNexus) {
+        const nexusRef = target.ref || target;
+        if (nexusRef && nexusRef.takeDamage) {
+            nexusRef.takeDamage(dmg);
+        }
+        return;
+    }
+
+    // Minions (melee, mage, big)
+    if (wasMinion) {
+        const minionRef = target.ref || target;
+        if (minionRef && minionRef.health !== undefined) {
+            minionRef.health -= dmg;
+            if (minionRef.updateHealthBar) minionRef.updateHealthBar();
+            if (minionRef.flashHit) minionRef.flashHit();
+            if (minionRef.health <= 0 && minionRef.die) {
+                // Detectar tipo de minion para recompensa correcta
+                const esMage = minionRef.tipo === 'mage';
+                const esBig = minionRef.esBig;
+                minionRef.die('player');
+
+                if (esBig) {
+                    givePlayerGold(ECONOMY.REWARD_MINION_KILL * 2, '⭐ Minion grande eliminado');
+                    givePlayerExp(50);
+                } else if (esMage) {
+                    givePlayerGold(ECONOMY.REWARD_MAGE_KILL, '🧙 Mago eliminado');
+                    givePlayerExp(25);
+                } else {
+                    givePlayerGold(ECONOMY.REWARD_MINION_KILL, '⚔️ Minion eliminado');
+                    givePlayerExp(20);
+                }
+            }
+        }
+        return;
+    }
+
+    // Cualquier otro tipo: fallback genérico
     if (target.ref && target.ref.health !== undefined) {
         target.ref.health -= dmg;
         if (target.ref.updateHealthBar) target.ref.updateHealthBar();
         if (target.ref.flashHit) target.ref.flashHit();
-        if (target.ref.health <= 0 && target.ref.die) {
-            target.ref.die('player');
-            if (wasMinion) {
-                givePlayerGold(ECONOMY.REWARD_MINION_KILL, '👾 Minion eliminado');
-                givePlayerExp(20);
-            } else if (wasTower) {
-                givePlayerGold(ECONOMY.REWARD_TOWER_KILL, '🗼 Torre destruida');
-                givePlayerExp(100);
-            } else if (wasNexus) {
-                givePlayerGold(ECONOMY.REWARD_NEXUS_KILL, '💎 Nexo destruido');
-                givePlayerExp(0);
-            }
-        }
+        if (target.ref.health <= 0 && target.ref.die) target.ref.die('player');
     }
 }
 
@@ -5677,7 +5723,11 @@ function createAbilityHUD(h) {
         if (hab.icono) {
             const img = document.createElement('img');
             img.src = getAssetUrl(hab.icono);
-            img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+            // Zoom específico por habilidad
+            let escalaZoom = 1.3;
+            if (hab.id === 'q') escalaZoom = 1.5;
+            if (hab.id === 'e') escalaZoom = 2.0;
+            img.style.cssText = `width:100%;height:100%;object-fit:cover;object-position:center;transform:scale(${escalaZoom});`;
             img.onerror = () => { img.remove(); pintarTecla(box, hab); };
             box.appendChild(img);
         } else {
