@@ -3595,10 +3595,55 @@ class TowerProjectile {
                     if (this.targetRef.die) this.targetRef.die('tower');
                 }
             }
-            if (targetDied && !this.isEnemy && !isAITrainingMode && reward > 0) {
-                givePlayerGold(reward, `🗼 Torre aliada (asistencia)`);
-                // M8.5: dar EXP por asistir a torre aliada
-                if (this.targetRef.type === 'tower') givePlayerExp(50);
+            if (targetDied && !isAITrainingMode && reward > 0) {
+                const esTorreAliada = !this.isEnemy;
+                
+                if (esTorreAliada) {
+                    // Torre aliada mató → Bing (jugador) puede recibir EXP compartida
+                    givePlayerGold(reward, `🗼 Torre aliada (asistencia)`);
+                    // EXP compartida al jugador (50%)
+                    if (playerModel && !isPlayerDead && playerSpawned) {
+                        const distAlMuerto = playerModel.position.distanceTo(deathPosition);
+                        if (distAlMuerto < 15) {
+                            let expComp = 0;
+                            const tipo = this.targetRef.type;
+                            if (tipo === 'minion') {
+                                const esMage = this.targetRef.tipo === 'mage';
+                                const esBig = this.targetRef.esBig;
+                                if (esBig) expComp = 25;
+                                else if (esMage) expComp = 12;
+                                else expComp = 10;
+                            } else if (tipo === 'tower') expComp = 50;
+                            else if (tipo === 'nexus') expComp = 75;
+                            else if (tipo === 'enemy_axie') expComp = 75;
+                            if (expComp > 0) {
+                                givePlayerExp(expComp);
+                                console.log('💰 +' + expComp + ' EXP compartida (torre aliada mató)');
+                            }
+                        }
+                    }
+                } else {
+                    // Torre enemiga mató → Axie enemigo (IA) puede recibir EXP compartida
+                    if (enemyAxieModel && !enemyAxieIsDead) {
+                        const distAlMuerto = enemyAxieModel.position.distanceTo(deathPosition);
+                        if (distAlMuerto < 15) {
+                            let expComp = 0;
+                            const tipo = this.targetRef.type;
+                            if (tipo === 'minion') {
+                                const esMage = this.targetRef.tipo === 'mage';
+                                const esBig = this.targetRef.esBig;
+                                if (esBig) expComp = 25;
+                                else if (esMage) expComp = 12;
+                                else expComp = 10;
+                            } else if (tipo === 'tower') expComp = 50;
+                            else if (tipo === 'nexus') expComp = 75;
+                            if (expComp > 0) {
+                                giveEnemyAxieExp(expComp);
+                                console.log('💰 +' + expComp + ' EXP compartida (torre enemiga mató)');
+                            }
+                        }
+                    }
+                }
                 deathPosition.y = GROUND_Y + 1.2;
                 showGoldPopupAt3D(reward, deathPosition, '#88ddff');
             }
@@ -5283,6 +5328,37 @@ class Minion {
                             this.memory.kills++;
                             this.adjustWeightsOnKill(finalTarget.type || 'minion');
                             factionBrain[this.isEnemy ? 'enemy' : 'ally'].stats.totalKills++;
+                            
+                            // EXP compartida al Axie correspondiente si está cerca
+                            const posMuerto = finalTarget.group ? finalTarget.group.position : finalTarget.position;
+                            if (posMuerto) {
+                                if (this.isEnemy) {
+                                    // Minion rojo mató → Axie enemigo (IA) puede recibir EXP
+                                    if (enemyAxieModel && !enemyAxieIsDead) {
+                                        const dist = enemyAxieModel.position.distanceTo(posMuerto);
+                                        if (dist < 15) {
+                                            const esMage = finalTarget.tipo === 'mage';
+                                            const esBig = finalTarget.esBig;
+                                            let expComp = esBig ? 25 : (esMage ? 12 : 10);
+                                            giveEnemyAxieExp(expComp);
+                                            console.log('💰 +' + expComp + ' EXP compartida al enemigo (minion rojo mató)');
+                                        }
+                                    }
+                                } else {
+                                    // Minion azul mató → Bing (jugador) puede recibir EXP
+                                    if (playerModel && !isPlayerDead && playerSpawned) {
+                                        const dist = playerModel.position.distanceTo(posMuerto);
+                                        if (dist < 15) {
+                                            const esMage = finalTarget.tipo === 'mage';
+                                            const esBig = finalTarget.esBig;
+                                            let expComp = esBig ? 25 : (esMage ? 12 : 10);
+                                            givePlayerExp(expComp);
+                                            console.log('💰 +' + expComp + ' EXP compartida al jugador (minion azul mató)');
+                                        }
+                                    }
+                                }
+                            }
+                            
                             if (finalTarget.die) finalTarget.die('minion');
                             this.target = null;
                             this.state = 'move';
@@ -6229,6 +6305,9 @@ function givePlayerExp(amount) {
     if (playerLevel >= PLAYER_MAX_LEVEL) return;
     playerExp += amount;
 
+    // === LOG TEMPORAL (QUITAR DESPUÉS) ===
+    // === FIN LOG TEMPORAL ===
+
     // Refrescar la barra de EXP en cada ganancia (no solo al subir)
     if (typeof updateLevelHUD === 'function') updateLevelHUD();
 
@@ -6263,6 +6342,26 @@ function givePlayerExp(amount) {
             setTimeout(() => scene.remove(flash), 400);
         }
     }
+}
+
+// --- Dar EXP al Axie enemigo (IA) ---
+function giveEnemyAxieExp(amount) {
+    if (!enemyAxie || enemyAxieIsDead) return;
+    if (enemyAxieLevel >= PLAYER_MAX_LEVEL) return;
+    enemyAxieExp += amount;
+    
+    while (enemyAxieExp >= enemyAxieExpNext && enemyAxieLevel < PLAYER_MAX_LEVEL) {
+        enemyAxieExp -= enemyAxieExpNext;
+        enemyAxieLevel++;
+        // El enemigo sube stats igual que el jugador
+        enemyAxieMaxHealth += LEVEL_UP_GAIN.health;
+        enemyAxie.health += LEVEL_UP_GAIN.health;
+        enemyAxieBonuses.damageMultiplier *= (1 + LEVEL_UP_GAIN.damage / 100);
+        enemyAxieBonuses.attackSpeedMultiplier *= (1 + LEVEL_UP_GAIN.damage / 100);
+        enemyAxieExpNext = Math.round(100 + (enemyAxieLevel - 1) * 50);
+        console.log('⭐ ¡AXIE ENEMIGO SUBIÓ A NIVEL ' + enemyAxieLevel + '!');
+    }
+    updateEnemyHealthBar();
 }
 
 // M8.7: Comprobar si se puede subir una habilidad
@@ -6341,8 +6440,17 @@ function updateLevelHUD() {
     const expText = document.getElementById('player-exp-text');
     if (levelEl) levelEl.textContent = t('hud.level') + ' ' + playerLevel;
     if (expBar) {
-        const pct = playerLevel >= PLAYER_MAX_LEVEL ? 100 : (playerExp / playerExpNext) * 100;
-        expBar.style.width = Math.min(100, pct) + '%';
+        let pct = 0;
+        if (playerLevel >= PLAYER_MAX_LEVEL) {
+            pct = 100;
+        } else {
+            const next = playerExpNext || 100;
+            pct = Math.max(0, Math.min(100, (playerExp / next) * 100));
+            if (isNaN(pct)) pct = 0;
+        }
+        // === LOG TEMPORAL (QUITAR DESPUÉS) ===
+        // === FIN LOG TEMPORAL ===
+        expBar.style.width = pct + '%';
     }
     if (expText) {
         if (playerLevel >= PLAYER_MAX_LEVEL) expText.textContent = 'MAX';
@@ -6951,6 +7059,10 @@ function showDefeatScreen() {
 }
 
 let enemyAxie = null;
+// --- Sistema de niveles del Axie enemigo ---
+let enemyAxieLevel = 1;
+let enemyAxieExp = 0;
+let enemyAxieExpNext = 100;
 let enemyAxieModel = null;
 let enemyAxieMixer = null;
 let enemyAxieAnimIdle = null;
@@ -7001,6 +7113,10 @@ function makeEnemyAxieRef() {
 function spawnEnemyAxie() {
     if (enemyAxieSpawned || gameFinished) return;
     console.log(`🤖 [t=${gameTime.toFixed(2)}s] Spawneando Axie enemigo...`);
+    // Resetear nivel y EXP del Axie enemigo
+    enemyAxieLevel = 1;
+    enemyAxieExp = 0;
+    enemyAxieExpNext = 100;
     const allAxies = getAllAxies();
     const available = allAxies.filter(a => a.id !== selectedAxieId);
     const randomAxie = available[Math.floor(Math.random() * available.length)];
@@ -7311,6 +7427,21 @@ function enemyAxieAttack(target) {
         if (target.ref.updateHealthBar) target.ref.updateHealthBar();
         if (target.ref.flashHit) target.ref.flashHit();
         if (target.ref.health <= 0 && target.ref.die) {
+            // El enemigo mata objetivo → dar EXP al Axie enemigo
+            const tipoObjetivo = target.type || target.ref?.type || 'minion';
+            if (tipoObjetivo === 'minion') {
+                const esMage = target.ref.tipo === 'mage';
+                const esBig = target.ref.esBig;
+                if (esBig) giveEnemyAxieExp(50);
+                else if (esMage) giveEnemyAxieExp(25);
+                else giveEnemyAxieExp(20);
+            } else if (tipoObjetivo === 'tower') {
+                giveEnemyAxieExp(100);
+            } else if (tipoObjetivo === 'nexus') {
+                giveEnemyAxieExp(150);
+            } else if (tipoObjetivo === 'player' || tipoObjetivo === 'defend_player') {
+                giveEnemyAxieExp(150);
+            }
             target.ref.die('enemy_axie');
             if (target.type === 'minion') enemyAxieGold += 15;
             else if (target.type === 'tower') enemyAxieGold += 80;
@@ -7602,6 +7733,10 @@ function resetEnemyAxie() {
     enemyAxieBrain.stats._lastTargetType = null;
     enemyAxiePotionCount = 0;
     enemyAxiePotionCooldown = 0;
+    // Resetear nivel y EXP del Axie enemigo
+    enemyAxieLevel = 1;
+    enemyAxieExp = 0;
+    enemyAxieExpNext = 100;
 }
 
 // ============================================================
