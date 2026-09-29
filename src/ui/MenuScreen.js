@@ -1510,6 +1510,23 @@ export class MenuScreen {
             false
         );
 
+        // v1.0.2 - VISUAL EFFECTS
+        crearVersion(
+            'patch.version_1_2',
+            'patch.v1_2_date',
+            'patch.v1_2_title',
+            [
+                'patch.v1_2_sprites',
+                'patch.v1_2_bing',
+                'patch.v1_2_kotaro',
+                'patch.v1_2_aura',
+                'patch.v1_2_q_rotate',
+                'patch.v1_2_r_channel',
+                'patch.v1_2_melee',
+            ],
+            false
+        );
+
         // v2 - PRÓXIMAMENTE
         crearVersion(
             'patch.version_2',
