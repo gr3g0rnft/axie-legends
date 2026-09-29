@@ -1944,6 +1944,7 @@ function lanzarHabilidadApuntada() {
 
     // Consumir maná y poner cooldown
     playerMana -= manaHab;
+    abilityHUDDirty = true;
     if (playerMana < 0) playerMana = 0;
     cooldownsHabilidad[hab.id] = cdHab;
     updatePlayerHUD();
@@ -1979,8 +1980,133 @@ function lanzarHabilidadApuntada() {
         audio.play('hit', { volume: 0.5 });
     }, 300);
 
+    // Efecto visual de la Q sobre el objetivo (orientado al proyectil)
+    if (targetPos && playerModel) {
+        const dxQ = targetPos.x - playerModel.position.x;
+        const dzQ = targetPos.z - playerModel.position.z;
+        // Ángulo hacia el enemigo + 180° para corregir la inversión del sprite
+        const anguloQ = Math.atan2(dxQ, dzQ) + Math.PI;
+        reproducirEfectoHabilidad('q', targetPos, null, 2.0, SPRITE_SHEET_DURACION, anguloQ);
+    }
+
     // Cancelar el modo apuntar (quita el aro azul)
     cancelarApuntado();
+}
+
+// --- SISTEMA DE EFECTOS DE HABILIDADES ---
+function reproducirEfectoHabilidad(habId, posicion, axieId, escala = 2.0, duracion = SPRITE_SHEET_DURACION, rotacionY = 0, modoBucle = false) {
+    if (!posicion) return;
+    const idAxie = axieId || (typeof selectedAxieId !== 'undefined' ? selectedAxieId : 'bing');
+    const mapa = SPRITES_HABILIDADES[idAxie];
+    if (!mapa || !mapa[habId]) {
+        console.warn('⚠️ No hay sprite para ' + idAxie + '.' + habId);
+        return;
+    }
+    const rutaSprite = getAssetUrl(mapa[habId]);
+
+    const texLoader = new THREE.TextureLoader();
+    texLoader.load(rutaSprite, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.repeat.set(1 / SPRITE_SHEET_FRAMES, 1);
+        texture.offset.set(0, 0);
+
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            toneMapped: false,
+            blending: THREE.AdditiveBlending
+        });
+        // Rotar el sprite en su plano 2D
+        material.rotation = rotacionY;
+        const sprite = new THREE.Sprite(material);
+        sprite.position.copy(posicion);
+        sprite.position.y = GROUND_Y + 0.5;
+        sprite.scale.set(escala, escala, 1);
+        sprite.renderOrder = 2000;
+
+        scene.add(sprite);
+
+        efectosHabilidadesActivos.push({
+            sprite, texture, material,
+            timer: 0,
+            duracion,
+            framesTotales: SPRITE_SHEET_FRAMES,
+            modoBucle: modoBucle
+        });
+
+        console.log('🎬 Efecto: ' + idAxie + '.' + habId);
+    }, undefined, (err) => {
+        console.warn('❌ Error cargando sprite: ' + rutaSprite, err);
+    });
+}
+
+// Activa el aura visual de la pasiva E (sigue a Bing)
+function activarAuraPasivaE() {
+    if (auraPasivaActiva) return;   // ya está activa
+    if (!playerModel) return;
+    const idAxie = (typeof selectedAxieId !== 'undefined') ? selectedAxieId : 'bing';
+    const mapa = SPRITES_HABILIDADES[idAxie];
+    if (!mapa || !mapa.e) return;
+    const rutaSprite = getAssetUrl(mapa.e);
+
+    const texLoader = new THREE.TextureLoader();
+    texLoader.load(rutaSprite, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.repeat.set(1 / SPRITE_SHEET_FRAMES, 1);
+        texture.offset.set(0, 0);
+
+        const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: true,
+            depthWrite: false,
+            toneMapped: false,
+            blending: THREE.AdditiveBlending,
+            opacity: 0.85,
+            side: THREE.DoubleSide
+        });
+        const geo = new THREE.PlaneGeometry(1, 1);
+        const sprite = new THREE.Mesh(geo, material);
+        // Tumbar en el suelo: rotar 90° sobre X
+        sprite.rotation.x = -Math.PI / 2;
+        sprite.scale.set(2.5, 2.5, 1);
+        sprite.renderOrder = 1500;
+        sprite.position.y = GROUND_Y - 0.02;
+        scene.add(sprite);
+
+        auraPasivaActiva = {
+            sprite,
+            texture,
+            material,
+            timer: 0,
+            frameActual: 0
+        };
+
+        console.log('✨ Aura E activada');
+    }, undefined, (err) => {
+        console.warn('❌ Error cargando sprite E:', err);
+    });
+}
+
+// Desactiva el aura visual de la pasiva E
+function desactivarAuraPasivaE() {
+    if (!auraPasivaActiva) return;
+    if (auraPasivaActiva.sprite && auraPasivaActiva.sprite.parent) {
+        scene.remove(auraPasivaActiva.sprite);
+    }
+    if (auraPasivaActiva.sprite && auraPasivaActiva.sprite.geometry) {
+        auraPasivaActiva.sprite.geometry.dispose();
+    }
+    if (auraPasivaActiva.texture) auraPasivaActiva.texture.dispose();
+    if (auraPasivaActiva.material) auraPasivaActiva.material.dispose();
+    auraPasivaActiva = null;
+    console.log('✨ Aura E desactivada');
 }
 
 // --- M2.4: iniciar apuntado de área ---
@@ -2136,6 +2262,7 @@ function lanzarHabilidadArea() {
 
     // Consumir maná y poner cooldown
     playerMana -= manaHab;
+    abilityHUDDirty = true;
     if (playerMana < 0) playerMana = 0;
     cooldownsHabilidad[hab.id] = cdHab;
     updatePlayerHUD();
@@ -2195,6 +2322,9 @@ function lanzarHabilidadArea() {
     anillo.renderOrder = 1002;
     scene.add(anillo);
 
+    // Efecto sprite sheet animado para la W
+    reproducirEfectoHabilidad('w', pos, null, 1.5, 0.6);
+
     // Guardar para animar
     if (typeof ondasActivas === 'undefined') {
         window.ondasActivas = [];
@@ -2231,6 +2361,7 @@ function iniciarChannel(hab, direccionInicial) {
 
     // Consumir maná y poner cooldown
     playerMana -= manaHab;
+    abilityHUDDirty = true;
     if (playerMana < 0) playerMana = 0;
     cooldownsHabilidad[hab.id] = cdHab;
     updatePlayerHUD();
@@ -2270,6 +2401,14 @@ function iniciarChannel(hab, direccionInicial) {
     isAutoMovingToTarget = false;
 
     console.log('🎯 Canalizando: ' + hab.nombre + ' | Duración: ' + channelDuration + 's | Ráfagas: ' + channelRafagasRestantes);
+
+    // Efecto sprite sheet animado para la R
+    // FIX 1: el sprite se desplaza hacia adelante (en la dirección del cono)
+    // FIX 2: se quita el signo negativo para que apunte en la dirección correcta
+    const anguloSpriteR = Math.atan2(direccionInicial.x, direccionInicial.z) + Math.PI;
+    const rangoR = vHab ? (vHab.rango || 8.0) : 8.0;
+    const posR = playerModel.position.clone().addScaledVector(direccionInicial, rangoR * 0.4);
+    reproducirEfectoHabilidad('r', posR, null, 5.0, channelDuration, anguloSpriteR, true);
 }
 
 // --- M6.2a: Cancelar canalizada ---
@@ -2626,6 +2765,41 @@ function dispararRafagaChannel() {
     const rafagasTotales = (vHab && vHab.rafagas) ? vHab.rafagas : 8;
     const numRafaga = rafagasTotales - channelRafagasRestantes + 1;
     console.log('💥 Ráfaga ' + numRafaga + '/' + rafagasTotales + ' | Impactos: ' + impactos);
+}
+
+// --- SISTEMA DE EFECTOS DE HABILIDADES ---
+function updateEfectosHabilidades(delta) {
+    for (let i = efectosHabilidadesActivos.length - 1; i >= 0; i--) {
+        const efecto = efectosHabilidadesActivos[i];
+        efecto.timer += delta;
+
+        if (efecto.timer >= efecto.duracion) {
+            if (efecto.sprite && efecto.sprite.parent) scene.remove(efecto.sprite);
+            if (efecto.texture) efecto.texture.dispose();
+            if (efecto.material) efecto.material.dispose();
+            efectosHabilidadesActivos.splice(i, 1);
+            continue;
+        }
+
+        const progreso = efecto.timer / efecto.duracion;
+        let frameActual;
+        if (efecto.modoBucle) {
+            // Bucle: los frames se repiten hasta que termine el efecto
+            const fps = efecto.framesTotales / SPRITE_SHEET_DURACION;
+            frameActual = Math.floor(efecto.timer * fps) % efecto.framesTotales;
+        } else {
+            // Una sola pasada
+            frameActual = Math.min(
+                efecto.framesTotales - 1,
+                Math.floor(progreso * efecto.framesTotales)
+            );
+        }
+        efecto.texture.offset.x = frameActual / efecto.framesTotales;
+
+        if (progreso > 0.8) {
+            efecto.material.opacity = (1 - progreso) / 0.2;
+        }
+    }
 }
 
 // --- M4.1: animar ondas expansivas ---
@@ -5933,6 +6107,20 @@ function mostrarTooltipHabilidad(habId, box) {
 
 // Refresca recargas y estado de maná de TODAS las habilidades del panel.
 function updateAbilityHUD() {
+    // Early exit: si nada ha cambiado, no refrescar el HUD
+    const nivelesStr = JSON.stringify(nivelesHabilidad || {});
+    const hayCambio = abilityHUDDirty
+        || Math.floor(playerMana) !== abilityHUDLastMana
+        || playerLevel !== abilityHUDLastLevel
+        || nivelesStr !== abilityHUDLastNiveles;
+
+    if (!hayCambio) return;
+
+    abilityHUDDirty = false;
+    abilityHUDLastMana = Math.floor(playerMana);
+    abilityHUDLastLevel = playerLevel;
+    abilityHUDLastNiveles = nivelesStr;
+
     for (const hab of getHabilidades()) {
         const box = habilidadCajas[hab.id];
         if (!box) continue;
@@ -6040,6 +6228,10 @@ function givePlayerExp(amount) {
     if (isAITrainingMode) return;
     if (playerLevel >= PLAYER_MAX_LEVEL) return;
     playerExp += amount;
+
+    // Refrescar la barra de EXP en cada ganancia (no solo al subir)
+    if (typeof updateLevelHUD === 'function') updateLevelHUD();
+
     let subioNivel = false;
     while (playerExp >= playerExpNext && playerLevel < PLAYER_MAX_LEVEL) {
         playerExp -= playerExpNext;
@@ -6061,8 +6253,6 @@ function givePlayerExp(amount) {
             if (typeof updateAbilityPlusVisibility === 'function') updateAbilityPlusVisibility();
         }
     }
-    // M8.8-fix: actualizar el HUD de nivel/EXP SIEMPRE (no solo al subir)
-    if (typeof updateLevelHUD === 'function') updateLevelHUD();
 
     if (subioNivel) {
         updatePlayerHUD();
@@ -6102,6 +6292,8 @@ function puedeSubirHabilidad(id) {
 
 // M8.7: Subir nivel de habilidad
 function subirHabilidad(id) {
+    abilityHUDDirty = true;
+
     if (!puedeSubirHabilidad(id).ok) {
         console.log('❌ No se puede subir habilidad ' + id);
         return false;
@@ -8753,8 +8945,33 @@ const HABILIDADES_POR_TECLA = {};
 for (const h of getHabilidades()) HABILIDADES_POR_TECLA[h.tecla.toLowerCase()] = h.id;
 // Ondas visuales activas: se expanden y se borran solas.
 const ondasActivas = [];
+// --- SISTEMA DE EFECTOS DE HABILIDADES (sprite sheets animados) ---
+const efectosHabilidadesActivos = [];
+let auraPasivaActiva = null;   // Sprite persistente de la E
+const SPRITE_SHEET_FRAMES = 8;
+const SPRITE_SHEET_DURACION = 0.8;
+const SPRITES_HABILIDADES = {
+    bing: {
+        q: 'assets/habilidades/bing/q_plasma_blast.png',
+        w: 'assets/habilidades/bing/w_thruster_dash.png',
+        e: 'assets/habilidades/bing/e_overclock.png',
+        r: 'assets/habilidades/bing/r_inferno_cannon.png'
+    },
+    kotaro: {
+        q: 'assets/habilidades/kotaro/q_flash_slash.png',
+        w: 'assets/habilidades/kotaro/w_blade_guard.png',
+        e: 'assets/habilidades/kotaro/e_dance_thousand.png',
+        r: 'assets/habilidades/kotaro/r_demon_execution.png'
+    }
+};
 // Huecos del HUD, por id de habilidad.
 let habilidadCajas = {};
+
+// Flag para saber si el HUD de habilidades necesita refrescarse
+let abilityHUDDirty = true;
+let abilityHUDLastMana = -1;
+let abilityHUDLastLevel = -1;
+let abilityHUDLastNiveles = '';
 
 // M8.8: Devuelve los valores de una habilidad en su nivel actual
 // Uso: const valores = valoresHabilidadActual('q');
@@ -8899,8 +9116,10 @@ function togglePasiva(hab) {
     // Feedback en consola
     if (nuevoEstado) {
         console.log('✅ Pasiva ACTIVADA: ' + hab.nombre + (hab.bonus ? ' | ' + t('ability.bonus') + ': ' + JSON.stringify(hab.bonus) : ''));
+        activarAuraPasivaE();
     } else {
         console.log('⭕ Pasiva DESACTIVADA: ' + hab.nombre);
+        desactivarAuraPasivaE();
     }
 
     // M5.2 (futuro): actualizar el brillo del icono en el HUD
@@ -8963,6 +9182,7 @@ function aplicarHabilidadArea(hab) {
 
     // Consumir maná y poner cooldown
     playerMana -= manaHabArea;
+    abilityHUDDirty = true;
     if (playerMana < 0) playerMana = 0;
     cooldownsHabilidad[hab.id] = cdHabArea;
     updatePlayerHUD();
@@ -9005,11 +9225,16 @@ function aplicarHabilidadArea(hab) {
 
 // Avanza recargas y ondas. Se llama cada frame desde el bucle principal.
 function actualizarHabilidades(delta) {
+    let huboCambio = false;
     for (const id in cooldownsHabilidad) {
         if (cooldownsHabilidad[id] > 0) {
             cooldownsHabilidad[id] = Math.max(0, cooldownsHabilidad[id] - delta);
+            huboCambio = true;
         }
     }
+    // Si algún cooldown ha bajado este frame, marcar el HUD como sucio
+    // para que se refresque en el siguiente updateAbilityHUD.
+    if (huboCambio) abilityHUDDirty = true;
 }
 
 function actualizarOndas(delta) {
@@ -9511,7 +9736,8 @@ function gameLoop(time, token) {
     // Habilidades: recargas, ondas visuales y estado del panel.
     actualizarHabilidades(delta);
     actualizarOndas(delta);
-    updateAbilityHUD();
+    // Refrescar el HUD de habilidades si hay cambios (cooldowns, maná, nivel)
+    if (abilityHUDDirty) updateAbilityHUD();
 
     if (!gameStarted) {
         startTimer -= delta;
@@ -9578,6 +9804,31 @@ function gameLoop(time, token) {
         actualizarApuntadoArea(delta);
         // M4.1: animar ondas expansivas de área
         updateOndasActivas(delta);
+        // SISTEMA DE EFECTOS DE HABILIDADES
+        updateEfectosHabilidades(delta);
+
+        // Actualizar aura persistente de la E (sigue a Bing + pulso)
+        if (auraPasivaActiva && playerModel) {
+            auraPasivaActiva.timer += delta;
+            auraPasivaActiva.sprite.position.x = playerModel.position.x;
+            auraPasivaActiva.sprite.position.y = GROUND_Y - 0.02;
+            auraPasivaActiva.sprite.position.z = playerModel.position.z;
+
+            // Animar los frames del sprite sheet (bucle)
+            const fps = SPRITE_SHEET_FRAMES / SPRITE_SHEET_DURACION;
+            const frame = Math.floor(auraPasivaActiva.timer * fps) % SPRITE_SHEET_FRAMES;
+            auraPasivaActiva.texture.offset.x = frame / SPRITE_SHEET_FRAMES;
+
+            // PULSO: la opacidad y la escala oscilan con una sinusoide
+            // Ciclo de ~1.2s (frecuencia 2π/1.2 = 5.24 rad/s)
+            const fasePulso = Math.sin(auraPasivaActiva.timer * 5.24);   // -1..1
+            const intensidad = 0.4 + (fasePulso + 1) * 0.3;               // 0.4..1.0
+            const escala = 2.5 + fasePulso * 0.3;                          // 2.2..2.8
+
+            auraPasivaActiva.material.opacity = intensidad;
+            auraPasivaActiva.sprite.scale.set(escala, escala, 1);
+        }
+
         // M6.3c: actualizar apuntado del cono (R)
         actualizarApuntadoChannel(delta);
         // M6.2b: actualizar canalizada (R de Bing)
